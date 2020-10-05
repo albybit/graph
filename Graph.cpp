@@ -16,7 +16,6 @@
 #include <thread>
 
 #define GRAPH_DEBUG 0
-void ReadGraph(queue<string>&buffer,mutex& m,condition_variable& cv);
 void Graph::init ( ifstream &stat){
     int v;
     unsigned eavg;
@@ -70,6 +69,14 @@ path.init(nNodes);
 
     }
     stri.clear();
+   clusters=(struct nodesAP*)malloc(sizeof(struct nodesAP)*roots.size());
+    for (unsigned i=0;i<roots.size();i++) {
+        clusters[i].i = -1;
+        clusters[i].j=-1;
+    }
+    for (unsigned i=0;i<nPartitions;i++) {
+        partitions[i] = 0;
+    }
 }
 
 Graph::Graph(ifstream &stat, ifstream &gra){
@@ -77,15 +84,14 @@ Graph::Graph(ifstream &stat, ifstream &gra){
     init(stat);
     build(gra);
    numberOfNodesToProcess=roots.size();
-  // printIt();
    divideJob();
-   vector<thread> t;
+    // printIt();
+  vector<thread> t;
    t.reserve(nPartitions);
    for (unsigned i=0;i<nPartitions;i++)
         t.push_back( thread([this,i]{compute_dfs_by_comparing_path(i); }));
 for (unsigned i=0;i<nPartitions;i++)
     t[i].join();
-
 }
 void Graph::build(ifstream &gra) {
     unsigned u, v,pNodes=0;
@@ -164,47 +170,31 @@ void Graph::build(ifstream &gra) {
    Path oldPath;
   path.Path::init(nNodes);
    oldPath.Path::init(nNodes);
-
-
- while(numberOfNodesToProcess>0)
+     while(nOfNodesToProcess[threadIndex]>0)
    {
-      unsigned left= partitions[threadIndex]+nOfNodesToProcess[threadIndex];
-       mu[threadIndex].lock();
-       for (unsigned i=partitions[threadIndex];i<left;i++) {
-           nOfNodesProcessed[threadIndex]++;
-          //  printf("%d thread, nodeprocessed:%d\n",threadIndex,rootsVector[i]);
-             /*for(unsigned j=cscnode.csc_indices[rootsVector[i]];j<cscnode.csc_indices[rootsVector[i]+1];j++){
-             }
+     mu[threadIndex].lock();
+         unsigned right = nOfNodesToProcess[threadIndex] + partitions[threadIndex];
+     for (unsigned i=partitions[threadIndex];i<right;i++) {
 
-                    //  oldPath.add(rootsVector[i], cscnode.csc_nodes[j]);
-                      if (oldPath<path){
-                   //       path=oldPath;
-                      }
-*/
+         nOfNodesProcessed[threadIndex]++;
+     }
+          mu[threadIndex].unlock();
+          divideJob();
+          divideJobM.lock();
+          divideJobM.unlock();
 
-
-
-       }
-
-
-           mu[threadIndex].unlock();
-              divideJob();
-              divideJobM.lock();
-              divideJobM.unlock();
-
-   }
-
+ }
 }
-
 void Graph::divideJob() {
     unsigned i;
+
     if(!divideJobM.try_lock())
         return ;
 for (i=0;i<nPartitions;i++) { // #TODO costruisci un ciclo esterno che cicla su quello interno attraverso cosi fai try lock
     mu[i].lock();
-    cout<<nOfNodesProcessed[i];
     numberOfNodesToProcess = numberOfNodesToProcess - nOfNodesProcessed[i];
     nOfNodesProcessed[i]=0;
+    nOfNodesToProcess[i]=0;
 }
 if (numberOfNodesToProcess<=0)
 {
@@ -213,29 +203,42 @@ if (numberOfNodesToProcess<=0)
 }
 
     unsigned x= numberOfNodesToProcess/nPartitions;
-  //  cout<<x<<endl;
-
     noOfNodesToProcessForEachThread=x;
-for (i=0;i<nPartitions&& x>0;i++) {
-    partitions[i] = i * x;
-    nOfNodesToProcess[i]=x;
+if (controlVariable==0) {
+ncltrs=nPartitions;
+ controlVariable=1;
+    for (i = 0; i < nPartitions && x > 0; i++) {
 
-  //  cout<<partitions[i]<<" "<<x<<endl;
-}
+        clusters[i].i=partitions[i] = i * x;
+        clusters[i].j=noOfNodesToProcessForEachThread+clusters[i].i;
+
+        nOfNodesToProcess[i] = x;    // printIt();
+        cout << partitions[i] << " " << partitions[i] + nOfNodesToProcess[i] << endl;
+    }
 i=numberOfNodesToProcess%nPartitions;
-if (i!=0){
     unsigned c=0;
-    while (i>0){
+if (i!=0){
+    while    (i>0){
         partitions[c+1]=partitions[c+1]+1;
+        clusters[c+1].i=partitions[c+1]+1;
+        clusters[c].j++;
+for (unsigned k=c+1;k<nPartitions;k++){
+	clusters[c].i++;
+	clusters[c].j++;
+	}
         nOfNodesToProcess[c]+=1;
         i--;
         c++;
         if (c==nPartitions-1 && i>0){
             nOfNodesToProcess[c]+=1;
+
             i--;
             c=0;
         }
     }
+}
+}else{
+    computeClusters();
 }
 for (i=0;i<nPartitions;i++)
     mu[i].unlock();
@@ -244,5 +247,85 @@ for (i=0;i<nPartitions;i++)
 
 void Graph::printIt() {
 }
+void Graph::computeClusters(){
+  unsigned remaining= numberOfNodesToProcess%nPartitions;
+  unsigned tmpI=-1,tmpJ=-1,newI,newJ,c=0,x=1;
+
+  for (unsigned i=0;i<nPartitions && noOfNodesToProcessForEachThread>0;i++) {
+          newJ = clusters[c].i + numberOfNodesToProcess;
+          while(newJ>clusters[c].j && clusters[c].j!=-1){
+              c++;
+              if (clusters[c].j>newJ)
+              newJ=newJ-clusters[c-1].j+clusters[c].i;
+          }
+          x=c;
+
+      newI=newJ;
+      while(x<=ncltrs ){
+             newJ=clusters[x].j;
+              clusters[x].j=newI;
+              x++;
+              if (clusters[x].i==-1){
+                  clusters[x].i=newI;
+                  clusters[x].j=tmpJ;
+                  ncltrs++;
+                  break;
+              }
+              tmpI=clusters[x].i;
+              tmpJ=clusters[x].j;
+              clusters[x].i=newI;
+              clusters[x].j=newJ;
+              newJ=tmpJ;
+
+
+          }
+      if(newJ<clusters[c].i)
+          newJ=newJ-clusters[c-1].j+clusters[c].i;
+          tmpJ=newJ;
+          newI=clusters[c].i;
+          newJ=clusters[c].j;
+      while(c<ncltrs){
+      clusters[c].i=newI;
+
+      newI=newJ;
+
+           }
+          newJ  = clusters[c].j;
+          clusters[c].i=newJ;
+
+  }
+    for (unsigned i=1;i<nPartitions;i++) {
+        newI = clusters[c].i + noOfNodesToProcessForEachThread;
+        while (clusters[c].j < newI && c < ncltrs) {
+            if (clusters[c].i > newI) {
+                newI =   newI+newI-clusters[c].j+clusters[c].i;
+
+            //setNewI
+            } else {
+                newI = newI + clusters[c].i-clusters[c].j+clusters[c].i;
+                //setNewI()
+            }
+            c++;
+        }
+        if (clusters[c].j<newI) {
+            cout << "big Error" << endl;
+        return ;
+        }
+        // posto per ulteriore possibile ottimizzazione
+        partitions[i]=newI;
+        newJ=clusters[c].j;
+            tmpI=clusters[c].i;
+            tmpJ=clusters[c].j;
+            clusters[c].i=newI;
+
+            clusters[c].j=newJ;
+            newI=tmpI;
+            newJ=tmpJ;
+        }
+
+    }
+
+
+
 
 

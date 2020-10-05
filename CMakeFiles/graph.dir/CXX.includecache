@@ -48,23 +48,7 @@ unordered_map
 Path.h
 /home/aberto/graph/Path.h
 
-/home/aberto/graph/Path.cpp
-Graph.h
-/home/aberto/graph/Graph.h
-Path.h
 /home/aberto/graph/Path.h
-
-/home/aberto/graph/Path.h
-Graph.h
-/home/aberto/graph/Graph.h
-
-/home/aberto/graph/main.cpp
-iostream
--
-stdio.h
--
-fstream
--
 Graph.h
 /home/aberto/graph/Graph.h
 

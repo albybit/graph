@@ -39,14 +39,19 @@ struct csc_Node{
     unsigned i=0, c=0;
 
 };
+struct  nodesAP{
+    unsigned i,j;
+};
 class Graph {
 unsigned nNodes;
     unsigned  pre, post,prod,e;
     mutex mu[nPartitions];
     mutex divideJobM;
+    unsigned controlVariable=0;
     unsigned numberOfNodesToProcess,noOfNodesToProcessForEachThread;
     Path path;
-
+    struct nodesAP *clusters;
+    unsigned ncltrs=0;
     unsigned partitions[nPartitions]; //stores the index of the
     unsigned nOfNodesToProcess[nPartitions];
     unsigned nOfNodesProcessed[nPartitions];
@@ -66,6 +71,7 @@ void init(ifstream &stat);
 void build(ifstream &gra);
 void divideJob();
 void printIt();
+void computeClusters();
      void compute_dfs_by_comparing_path(int threadIndex);
 public:
     Graph(ifstream &stat, ifstream &gra);
