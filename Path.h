@@ -5,20 +5,17 @@
 #ifndef GRAPH_PATH_H
 #define GRAPH_PATH_H
 #include "Graph.h"
+using namespace std;
 class Path{
 private:
-    int *reserved[2];
-    int *pathTail[nPartitions-2];
-    int n;
+    vector<vector<unsigned>> path;
 public:
-    Path(){
-        reserved[0]={0};
-        reserved[1]={0};
+    Path(int n){
+        path.reserve(n);
     };
     void print();
     bool  operator<(const Path &p);
     Path& operator=(const Path &newPath);
-void init(int n);
     void add( const unsigned u,
              const unsigned v);
 

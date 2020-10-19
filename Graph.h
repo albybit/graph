@@ -10,6 +10,7 @@
 #include <unordered_set>
 #include <mutex>
 #include <unordered_map>
+#include <bits/stdc++.h>
 #define nPartitions 4
 #include "Path.h"
 #define MATRIX 0
@@ -18,21 +19,20 @@ struct Node
 {
     unsigned id, inc_visited_count = 0;
     int parent = -1, start = -1, end = -1, subTreeSize= -1;
-   // vector<unsigned > adj;
-    //unordered_map<unsigned, bool> inc;
+    unordered_map<unsigned, bool> inc;
     /*vector<unsigned> inc;
     vector<bool> inc_visited;
      */
+    vector<unsigned> path;
     bool no_path = true;
     bool visited = false;
-   // vector<unsigned> path;
-  //  mutex mux;
+    unsigned nPaths=0;
+    mutex mux;
 
 };
-
 struct csc_Node{
-    vector<unsigned>csc_nodes;
-    vector<unsigned>csc_indices;
+    unsigned *csc_nodes;
+    unsigned *csc_indices;
     unsigned avg;
 
     vector<unsigned> nEdges;
@@ -40,41 +40,48 @@ struct csc_Node{
 
 };
 struct  nodesAP{
-    unsigned i,j;
+    int i,j;
 };
 class Graph {
 unsigned nNodes;
+
     unsigned  pre, post,prod,e;
     mutex mu[nPartitions];
     mutex divideJobM;
     unsigned controlVariable=0;
     unsigned numberOfNodesToProcess,noOfNodesToProcessForEachThread;
-    Path path;
+vector<set<int> > edges;
+   vector< map<unsigned/*nodo*/,vector<unsigned>/*path nodo*/ >> modifiedVectors;
+   /*modifiedVectors[0] primo thread, modifiedVectors[1] secondo thread, modifiedVectors[2] terzo thread...*/
+    vector<map<unsigned/*nodo*/,unsigned/*numero degli archi uscenti/entranti visitati*/>> edgesVisited; // we use it for alg 4
+   /*edgesVisited[0] primo thread, edgesVisited[1] secondo thread, edgesVisited[2] terzo thread...*/
+    vector<struct Node> nodes;
+    vector <unsigned > nextRoots,nextLeafs;
     struct nodesAP *clusters;
     unsigned ncltrs=0;
     unsigned partitions[nPartitions]; //stores the index of the
     unsigned nOfNodesToProcess[nPartitions];
     unsigned nOfNodesProcessed[nPartitions];
     //vector<mutex> muxes;
-    vector<Node> nodes;
     unordered_set<unsigned> roots;
     vector<unsigned> rootsVector;
    struct csc_Node cscnode;
-
 #if MATRIX
 vector<vector<bool>> graph;
 #else
 vector<int> graph;
 vector<int> graph_csc; //compressed graph
 #endif
-void init(ifstream &stat);
-void build(ifstream &gra);
+void init(FILE  *stat);
+void build(FILE  *gra);
 void divideJob();
 void printIt();
 void computeClusters();
      void compute_dfs_by_comparing_path(int threadIndex);
+
+    void divideJobWrapper();
 public:
-    Graph(ifstream &stat, ifstream &gra);
+    Graph(FILE  *stat, FILE  *gra);
 
 
 };

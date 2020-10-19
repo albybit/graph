@@ -4,24 +4,24 @@
 #include "Graph.h"
 using namespace std;
 int main (int argc, char* argv[]) {
-    ifstream stat;
-    ifstream gra;
+    FILE *stat;
+    FILE *gra;
+    char str[2000];
     if (argc!=3){
         cout<<"wrong arguments";
         return -1;
     }
-stat.open(argv[2]); //.stat
- gra.open(argv[1]);
- if (!gra){
+    stat=fopen(argv[2],"r");
+    gra=fopen(argv[1],"r");
+ if (gra==NULL){
      cout << ".gra file did not open";
      return -1;
  }
- if (!stat){
+ if (stat==NULL){
      cout <<".stat file did not open";
      return -1;
  }
 Graph gp(stat,gra);
-//.gra
 
     return 0;
 }
