@@ -15,6 +15,7 @@
 #include <boost/thread.hpp>
 #include <thread>
 #define GRAPH_DEBUG 0
+#include <chrono>
 void Graph::init ( FILE *stat){
     int v;
     unsigned eavg;
@@ -49,14 +50,17 @@ if(stri.find("|E|")!=string::npos) {
         e = stoi(stri.substr(n1, m != std::string::npos ? m - n1 : m));
     }
 }}
+ modifiedparents.reserve(nPartitions);
  edgesVisited.reserve(nPartitions);
  modifiedVectors.reserve(nPartitions
          );
 for (unsigned i=0;i<nPartitions;i++){
     map<unsigned,unsigned> e;
     map<unsigned,vector<unsigned>> v;
+    map<unsigned,unsigned> c;
     edgesVisited.push_back(e);
     modifiedVectors.push_back(v);
+    modifiedparents.push_back(c);
 }
 
     nNodes=v;
@@ -65,15 +69,15 @@ edges.reserve(nNodes);
 edgesVisited.reserve(nNodes);
  for(unsigned u=0;u<v;u++) {
      roots.insert(u);
-edges[u]=set<int>();
+     set<int> c = set<int>();
+     edges.emplace_back(c);
 nodes[u].path;
-
 edgesVisited.reserve(nPartitions);
  }
     e=e+nNodes;
     cscnode.csc_indices=(unsigned*)malloc(sizeof(unsigned)*(v+1));
-    cscnode.csc_nodes=(unsigned*)malloc(sizeof(unsigned)*(e));
-for (unsigned i=0;i<e;i++){
+    cscnode.csc_nodes=(unsigned*)malloc(sizeof(unsigned)*(e*2));
+for (unsigned i=0;i<e*2;i++){
     cscnode.csc_nodes[i]=-1;
 }
     for (unsigned i=0;i<nPartitions;i++)
@@ -92,13 +96,18 @@ for (unsigned i=0;i<e;i++){
     }
 
 }
+void Graph::test()
+{
 
+}
 Graph::Graph(FILE *stat, FILE *gra){
     unsigned i=0;
     init(stat);
     build(gra);
     numberOfNodesToProcess=roots.size();
+
     divideJobWrapper();
+    test();
     /*printIt();
     i=clusters[0].i;
     clusters[0].i=20g;
@@ -122,13 +131,16 @@ Graph::Graph(FILE *stat, FILE *gra){
      divideJob();
 */
   vector<thread> t;
-   t.reserve(nPartitions);
+  t.reserve(nPartitions);
+    auto t1 = std::chrono::high_resolution_clock::now();
    for (unsigned i=0;i<nPartitions;i++)
-        t.push_back( thread([this,i]{compute_dfs_by_comparing_path(i); }));
+            t.push_back( thread( [this, i] { compute_dfs_by_comparing_path(i); }));
 for (unsigned i=0;i<nPartitions;i++)
     t[i].join();
+    auto t2 = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+    cout<<"time "<<duration;
 
-    printIt();
 }
 void Graph::build(FILE *gra) {
     unsigned u, v,pNodes=0;
@@ -161,6 +173,7 @@ void Graph::build(FILE *gra) {
          while (token!=NULL) {
             sscanf(token, "%d", &v);
              roots.erase(v);
+
              edges[u].insert(v);
              edges[v].insert(u);
 
@@ -173,144 +186,147 @@ void Graph::build(FILE *gra) {
 
     }
     {
+
         for (unsigned z=0;z<nNodes;z++){
 
             cscnode.csc_nodes[cscnode.i]=z;
             cscnode.csc_indices[cscnode.c]=cscnode.i;
             cscnode.c++;
             cscnode.i++;
-           for (auto it= edges[z].cbegin();it!=edges[z].cend();it++){
+            auto it=edges[z].begin();
+             for (set<int>::iterator it= edges[z].cbegin();!edges[z].empty()&& it!=edges[z].cend() ;it++){
+
                cscnode.csc_nodes[cscnode.i] = *it;
                cscnode.i++;
            }
             cscnode.csc_indices[cscnode.c]=cscnode.i;
         }
-    }
+        cscnode.csc_nodes[cscnode.i]=nNodes;
+        cscnode.csc_indices[cscnode.c]=cscnode.i;
 
+    }
     {
         unsigned i=roots.size()-1;
-        for (auto &elem: roots) {
-            nextRoots.push_back(elem);
-            i--;
 
-        }
     }
     vector<Node> to_swap(nNodes);
     nodes.swap(to_swap);
 
 }
+int Graph::getPath(vector<unsigned> &path,unsigned threadIndex,unsigned node) {
+    if (modifiedVectors[threadIndex].find(node)!=modifiedVectors[threadIndex].end()){
+        path=modifiedVectors[threadIndex].find(node)->second;
+        return 1;
+    }else{
+        if (nodes[node].path.empty()){
+            return 2;
+        }
+        else{
+          path=nodes[node].path;
+          return 3;
+        }
+    }
 
+}
  void Graph::compute_dfs_by_comparing_path(int threadIndex) {
-   unsigned i,indexNode_csc,c=0,newPathNode;
-     i=partitions[threadIndex];
-   map<unsigned,vector<unsigned>> mapp; //mapp just to declare iterator
-   auto it_root=mapp.begin();
+   unsigned i,in1,in2,c=threadIndex,node,ok,childnode;
+   vector<unsigned> oldpath,newpath;
+
+   i=0;
      while(rootsVector.size()>0){
-
-         while(clusters[c].j<i)
-             c++;
          mu[threadIndex].lock();
-             modifiedVectors[threadIndex].clear();
-         while(nOfNodesToProcess[threadIndex]>0) {
-        vector<unsigned>rootsPath;  // root's Path
-         indexNode_csc = cscnode.csc_indices[rootsVector[i]];
-       if(nodes[rootsVector[i]].path.empty()){
-           rootsPath.emplace_back(rootsVector[i]);
-            nodes[rootsVector[i]].path=rootsPath;
-       }
-       rootsPath=nodes[rootsVector[i]].path;
+     while(nOfNodesToProcess[threadIndex]>0){
+         while(clusters[c].i>=clusters[c].j)c++;
+       node=rootsVector[clusters[c].i];
+       clusters[c].i++;
+       in1=cscnode.csc_indices[rootsVector[clusters[c].i]]+1;
+       in2=cscnode.csc_indices[rootsVector[clusters[c].i]+1];
+       ok=getPath(newpath,threadIndex,node);
+     if (  ok==2){newpath.emplace_back(node);
+     modifiedVectors[threadIndex].emplace(node,newpath);
+     }
+       for (unsigned z=in1;z<in2;z++){
+          childnode=cscnode.csc_nodes[z];
+           newpath.emplace_back(childnode);
+           ok=getPath(oldpath,threadIndex,childnode);
+               switch (ok) {
+                   case 1:
+                       if(oldpath>newpath) {
+                          modifiedVectors[threadIndex].find(childnode)->second = newpath;
+                          countEdge(threadIndex,childnode);
+                           updateParent(threadIndex,node,childnode);
+                       }
+                       break;
+                   case 2:
+                       modifiedVectors[threadIndex].emplace(childnode,newpath);
+                      countEdge(threadIndex,childnode);
+                      updateParent(threadIndex,node,childnode);
+                       break;
+                   case 3:
+                       if (oldpath>newpath){
+                          modifiedVectors[threadIndex].emplace(childnode,newpath);
+                          countEdge(threadIndex,childnode);
+                          updateParent(threadIndex,node,childnode);
+                       }
 
-
-
-         for (indexNode_csc = +1; indexNode_csc < cscnode.csc_indices[rootsVector[i] + 1]; indexNode_csc++) {
-           vector<unsigned> newPathVector,oldPathVector;
-            newPathNode=cscnode.csc_nodes[indexNode_csc];
-           if (nodes[newPathNode].path.empty()){
-               newPathVector=rootsPath;
-               newPathVector.emplace_back(indexNode_csc);
-               modifiedVectors[threadIndex].emplace(newPathNode,newPathVector);
-               newPathVector.pop_back();
-
-           }else {
-
-               newPathVector=rootsPath;
-               newPathVector.emplace_back(newPathNode);
-                oldPathVector=nodes[newPathNode].path;
-               if (oldPathVector != newPathVector) {
-                   if (newPathVector<oldPathVector) {
-                        modifiedVectors[threadIndex].emplace(newPathNode,newPathVector);
-                        newPathVector.pop_back();
-
-                   }
+                           break;
 
                }
-           }
-            if (edgesVisited[threadIndex].find(newPathNode)==edgesVisited[threadIndex].end()){
-               edgesVisited[threadIndex].emplace(newPathNode,0);
-           }
 
-           auto it= edgesVisited[threadIndex].find(newPathNode);
-             (it->second)++;
+            newpath.pop_back();
+       }
 
-             //fine for più esterno algoritmo 4
+
          i++;
-         if (clusters[c].j > i) {
-             clusters[c].i++;
-         } else {
-             c++;
-             i = i - clusters[c - 1].j + clusters[c].i;
-             clusters[c].i++;
-         }
-         }
-         nOfNodesToProcess[threadIndex]--;
-         nOfNodesProcessed[threadIndex]++;
+      nOfNodesToProcess[threadIndex]--;
+      nOfNodesProcessed[threadIndex]++;
+       clusters[c].i++;
      }
-
      mu[threadIndex].unlock();
+
      divideJobWrapper();
+     divideJobM.lock();
+     divideJobM.unlock();
  }
 }
+void Graph::commitUpdates(){
+    controlVariable=0;
+    for (unsigned i=0;i<nPartitions;i++){
+    for (map<unsigned,unsigned>::iterator it =modifiedparents[i].begin();it!=modifiedparents[i].end();it++ )
+        nodes[it->first].parent=it->second;
+   for (map<unsigned,vector<unsigned>>::iterator it=modifiedVectors[i].begin();it!=modifiedVectors[i].end();it++)
+       nodes[it->first].path=it->second;
+   nOfNodesProcessed[i]=0;
+    }
+
+}
+void Graph::updateParent(unsigned threadIndex,unsigned node,unsigned childnode){
+  if( modifiedparents[threadIndex].find(childnode)==modifiedparents[threadIndex].end())
+      modifiedparents[threadIndex].emplace(childnode,node);
+  else
+      modifiedparents[threadIndex].find(childnode)->second=node;
+}
+void Graph::countEdge(unsigned threadIndex,unsigned node){
+   if (edgesVisited[threadIndex].find(node)==edgesVisited[threadIndex].end())
+       edgesVisited[threadIndex].emplace(node,1);
+   else
+       edgesVisited[threadIndex].find(node)->second++;
+
+}
 void Graph::divideJobWrapper(){
-    if (divideJobM.try_lock()) {
+    if (!divideJobM.try_lock())
+    {
+        divideJobM.lock();
+        divideJobM.unlock();
+        return;
+    }
         for (unsigned i=0;i<nPartitions;i++)
             mu[i].lock();
-        controlVariable = 0;
-
-
-        numberOfNodesToProcess = nextRoots.size();
-
-
-        rootsVector.clear();
-        for (auto &rele : nextRoots)
-            rootsVector.push_back(rele);
-        nextRoots.clear();
-
-        for (unsigned i=0;i<nPartitions;i++) {
-            for(std::map<unsigned,unsigned>::iterator it = edgesVisited[i].begin(); it != edgesVisited[i].end(); ++it) {
-                nodes[it->first].inc_visited_count+=(it->second);
-                if (nodes[it->first].inc_visited_count==edges[it->first].size())
-                    nextRoots.emplace_back(it->first);
-                nodes[it->first].inc_visited_count=0;
-
-            }
-            for (auto it = modifiedVectors[i].begin(); it != modifiedVectors[i].cend(); it++) {
-         if (nodes[it->first].path.empty())
-             nodes[it->first].path=it->second;
-                if ((it->second) > nodes[it->first].path) {
-                    nodes[it->first].path.clear();
-                    nodes[it->first].path = (it->second);
-                //    nodes[it->first].parent=nodes[it->first].path(nodes[it->first].)
-                }
-            }
-        }
-
-        divideJob();
-        for (unsigned i=0;i<nPartitions;i++)
-            mu[i].unlock();
-        divideJobM.unlock();
-    }
-    divideJobM.lock();
+divideJob();
+    for (unsigned i=0;i<nPartitions;i++)
+        mu[i].unlock();
     divideJobM.unlock();
+
 }
 void Graph::divideJob() {
     unsigned i;
@@ -320,7 +336,7 @@ for (i=0;i<nPartitions;i++) { // #TODO costruisci un ciclo esterno che cicla su 
     nOfNodesProcessed[i]=0;
     nOfNodesToProcess[i]=0;
 }
-if (numberOfNodesToProcess<=0)
+if (numberOfNodesToProcess<0)
 {
     divideJobM.unlock();
     return ;
@@ -341,11 +357,13 @@ if (controlVariable==0) {
         nOfNodesToProcess[i] = x;    // printIt();
     }
 i=numberOfNodesToProcess%nPartitions;
-    nOfNodesToProcess[i]+=i;
+
+    nOfNodesToProcess[0]+=i;
     clusters[0].j+=i;
-    partitions[1]+=i;
+
     for (unsigned c=1;c<nPartitions;c++)
     {
+        partitions[c]+=i;
         clusters[c].i+=i;
         clusters[c].j+=i;
     }
@@ -355,20 +373,11 @@ i=numberOfNodesToProcess%nPartitions;
 }
 
 void Graph::printIt() {
-    for (unsigned z=0;z<nNodes;z++)
-    {  cout<<z<<" ";
-        auto it = edges[z].cbegin();
-        for (it;it!=edges[z].cend();it++)
-            cout<<*it<<" ";
-        cout<<endl;
+    for (unsigned z=0;z<nNodes;z++) {
+     if (!nodes[z].path.empty())
+        cout << nodes[z].path[nodes[z].path.size() - 1] << endl;
     }
-    for (unsigned z=0;z<nNodes;z++){
-        cout <<z <<" indice "<< cscnode.csc_indices[z]<<" "<<endl;
-        for (unsigned f=cscnode.csc_indices[z];f<cscnode.csc_indices[z+1];f++)
-            cout<<cscnode.csc_nodes[f]<<" ";
-    cout<<endl;
     }
-}
 void Graph::computeClusters() {
     unsigned remaining = numberOfNodesToProcess % nPartitions;
    int tmpI = -1, tmpJ = -1, newI, newJ, c = 0, x = 1;

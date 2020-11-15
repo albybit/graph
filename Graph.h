@@ -14,20 +14,16 @@
 #define nPartitions 4
 #include "Path.h"
 #define MATRIX 0
+#define CSCNODES 1
 using namespace std;
 struct Node
 {
     unsigned id, inc_visited_count = 0;
     int parent = -1, start = -1, end = -1, subTreeSize= -1;
-    unordered_map<unsigned, bool> inc;
     /*vector<unsigned> inc;
     vector<bool> inc_visited;
      */
     vector<unsigned> path;
-    bool no_path = true;
-    bool visited = false;
-    unsigned nPaths=0;
-    mutex mux;
 
 };
 struct csc_Node{
@@ -35,7 +31,6 @@ struct csc_Node{
     unsigned *csc_indices;
     unsigned avg;
 
-    vector<unsigned> nEdges;
     unsigned i=0, c=0;
 
 };
@@ -51,12 +46,12 @@ unsigned nNodes;
     unsigned controlVariable=0;
     unsigned numberOfNodesToProcess,noOfNodesToProcessForEachThread;
 vector<set<int> > edges;
+   vector <map<unsigned,unsigned>> modifiedparents;
    vector< map<unsigned/*nodo*/,vector<unsigned>/*path nodo*/ >> modifiedVectors;
    /*modifiedVectors[0] primo thread, modifiedVectors[1] secondo thread, modifiedVectors[2] terzo thread...*/
     vector<map<unsigned/*nodo*/,unsigned/*numero degli archi uscenti/entranti visitati*/>> edgesVisited; // we use it for alg 4
    /*edgesVisited[0] primo thread, edgesVisited[1] secondo thread, edgesVisited[2] terzo thread...*/
     vector<struct Node> nodes;
-    vector <unsigned > nextRoots,nextLeafs;
     struct nodesAP *clusters;
     unsigned ncltrs=0;
     unsigned partitions[nPartitions]; //stores the index of the
@@ -75,10 +70,15 @@ vector<int> graph_csc; //compressed graph
 void init(FILE  *stat);
 void build(FILE  *gra);
 void divideJob();
+
+    void Graph::commitUpdates();
+void updateParent(unsigned threadIndex,unsigned node,unsigned childnode);
+ int getPath(vector<unsigned>&path,unsigned threadIndex, unsigned node);
 void printIt();
+void countEdge(unsigned threadIndex,unsigned node);
 void computeClusters();
      void compute_dfs_by_comparing_path(int threadIndex);
-
+void test();
     void divideJobWrapper();
 public:
     Graph(FILE  *stat, FILE  *gra);

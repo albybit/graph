@@ -1,0 +1,1 @@
+/usr/bin/g++  -pthread   CMakeFiles/graph.dir/main.cpp.o CMakeFiles/graph.dir/Graph.cpp.o CMakeFiles/graph.dir/Path.cpp.o  -o graph 

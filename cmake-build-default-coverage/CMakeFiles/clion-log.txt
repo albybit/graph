@@ -1,0 +1,2 @@
+Cannot generate 'Default-Coverage' into /home/alby/Desktop/CLionProjects/graph/cmake-build-default-coverage
+CMakeCache.txt is found in the project dir, only in-source generation will be performed.
