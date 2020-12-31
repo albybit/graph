@@ -5,10 +5,11 @@
 #include "Graph.h"
 
 #include <utility>
+Barrier barrier(nPartitions);
 void Graph::computeClusters() {
-    unsigned remaining = numberOfNodesToProcess % nPartitions;
+    int remaining = numberOfNodesToProcess % nPartitions;
     int tmpI = -1, tmpJ = -1, newI, newJ, c = 0, x = 1;
-    for (unsigned i = 0; i < nPartitions && noOfNodesToProcessForEachThread > 0; i++) {
+    for (int i = 0; i < nPartitions && noOfNodesToProcessForEachThread > 0; i++) {
         while (clusters[c].i == clusters[c].j && clusters[c].i != -1)
             c++;
         partitions[i] = clusters[c].i;
@@ -49,7 +50,7 @@ void Graph::computeClusters() {
 
 void Graph::init ( FILE *stat){
     int v;
-    unsigned eavg;
+    int eavg;
     char str[2000];
     string stri;
 
@@ -82,90 +83,166 @@ void Graph::init ( FILE *stat){
             }
         }}
 
-    for (unsigned i=0;i<nPartitions;i++){
-      modifiedparents[i].array=(struct mp_linked **)(malloc(sizeof(struct mp_linked *) * v));
-      modifiedparents[i].first=NULL;
-      modifiedparents[i].last=NULL;
+    for (int i=0;i<nPartitions;i++){
+      modifiednodes[i].array=(struct mn_linked **)(malloc(sizeof(struct mn_linked *) * v));
+      modifiednodes[i].last=NULL;
+      modifiednodes[i].first=NULL;
       edgesvisited[i]= static_cast<int *>(calloc(v, sizeof(int)));
       nedgesvisited[i]= static_cast<int *>(malloc(sizeof(int)*v));
-
-      lengthOfArrayEdgesVisited[i]=0;
-      modifiedVectors[i].array=(struct mv_linked **)(malloc(sizeof(struct mv_linked *) * v));
-      modifiedVectors[i].first=NULL;
-      modifiedVectors[i].last=NULL;
     }
     nNodes=v;
    edges.reserve(nNodes);
+   parents.reserve(nNodes);
+
+    incomingedges.reserve(nNodes);
+
     roots.array=(struct rts_linked **)(malloc(sizeof(struct rts_linked* ) * v));
+    leafs.array=(struct lf_linked **)(malloc(sizeof(struct lf_linked* ) * v));
+    leafs.last=leafs.first=NULL;
+
     roots.last=NULL;
     roots.first=NULL;
-    for(unsigned u=0;u<v;u++) {
+    for(int u=0;u<v;u++) {
        InsertRoot(u);
-
         set<int> c = set<int>();
         edges.emplace_back(c);
+        parents.emplace_back(c);
+        incomingedges.emplace_back(c);
+        InsertLeaf(u);
        // edges.emplace_back(c);
         //edgesVisited.reserve(nPartitions);
     }
     e=e+nNodes;
-    cscnode.csc_indices=(unsigned*)malloc(sizeof(unsigned)*(v+1));
-    cscnode.csc_nodes=(unsigned*)malloc(sizeof(unsigned)*(e*2));
-    for (unsigned i=0;i<e*2;i++){
+    cscnode.csc_indices=(int*)malloc(sizeof(int)*(v+1));
+    cscnode.csc_nodes=(int*)malloc(sizeof(int)*(e*2));
+    for (int i=0;i<e*2;i++){
         cscnode.csc_nodes[i]=-1;
     }
-    for (unsigned i=0;i<nPartitions;i++)
+    clusters=(struct nodesAP*)malloc(sizeof(struct nodesAP)*nPartitions);
+    for (int i=0;i<nPartitions;i++)
     {
-        nOfNodesProcessed[i]=0;
+        nOfNodesProcessed[i]=0;   clusters[i].i = -1;
+        partitions[i] = 0;
+        clusters[i].j=-1;;
     }
     stri.clear();
     nodes= static_cast<Node *>(malloc(sizeof(struct Node) * nNodes));
+    lengthOfArrayEdgesVisited=(int *)calloc(nPartitions,sizeof(int));
+    //for (int i=0;i<nNodes;i++) {
 
-    clusters=(struct nodesAP*)malloc(sizeof(struct nodesAP)*nNodes);
-    for (unsigned i=0;i<nNodes;i++) {
-        clusters[i].i = -1;
-        clusters[i].j=-1;
-        nodes[i].parent=-1;
-        nodes[i].pt= static_cast<path *>(malloc(sizeof(struct path )));
-        initPath(nodes[i].pt);
-    }
-    for (unsigned i=0;i<nPartitions;i++) {
-        partitions[i] = 0;
-    }
+     //   nodes[i].parent=-1;
+     //   nodes[i].pt.path=(int *) malloc(sizeof(int)*10);
+ //   }
+    Barrier barrier(nPartitions);
 
 }
-void Graph::assignPath(int index, unsigned int childnode, struct path* vector) {
-    if (modifiedVectors[index].array[childnode]==NULL){
-     modifiedVectors[index].array[childnode]= (struct mv_linked *)(malloc(sizeof(struct mv_linked )));
+void Graph::assignPath(int index, int node, struct path vector) {
+    if (modifiednodes[index].array[node]==NULL){
+    modifiednodesEmplace(index,node,0,vector,2);
     }
-    modifiedVectors[index].array[childnode]->newPath=vector;
+   modifiednodes[index].array[node]->modifiednode.pt=vector;
+    modifiednodes[index].array[node]->node=node;
+    if (modifiednodes[index].array[node]->modified==1)
+        modifiednodes[index].array[node]->modified=3;
 }
 void Graph::test(){
-    return;
-}void Graph::divideJobWrapper(){
-    if (!divideJobM.try_lock())
-    {
-        divideJobM.lock();
-        divideJobM.unlock();
-        return;
+
+    DeleteRoot(9);
+    for (int i=0;i<roots.numberofroots;i++)
+        cout<<roots.array[i]->node<<"nn "<<endl;
+   struct path ptnull,pt2;
+InitPath(&ptnull);
+InitPath(&pt2);
+ EmplaceNodeInPath(&ptnull,10);
+    EmplaceNodeInPath(&ptnull,12);
+    EmplaceNodeInPath(&ptnull,13);
+/*
+
+
+    int f[4]={2,4,0,2};
+    auto c=[this,f]() {
+     for (int i=0;i<2;i++){
+         struct mn_linked *n=modifiednodes[1].array[f[i]];
+      // for (struct mn_linked *n = modifiednodes[1].first; n != NULL; n = n->next) {
+           if(n->modified==2){
+               cout<<"path of node:"<<n->node<<endl;
+               for (int i=0; i<=n->modifiednode.pt.lastElementIndex;i++)
+                   cout<<n->modifiednode.pt.path[i]<<endl;
+               cout<< "endPath"<<endl;
+           }
+           if(n->modified==1){
+               cout<<"parent : "<<n->modifiednode.parent<<" node: "<<n->node <<endl;
+           }
+           if (n->modified==3){
+               cout<<"parent : "<<n->modifiednode.parent<<" node: "<<n->node <<endl;
+               cout<<"path"<<endl;
+               for (int i=0; i<=n->modifiednode.pt.lastElementIndex;i++)
+                   cout<<n->modifiednode.pt.path[i]<<endl;
+               cout<< "endPath"<<endl;
+           }
+       }
+   };
+    auto d=[this,f](){
+    for (int i=0;i<3;i++){
+        cout<<"parend of node 2 and then 4\n"<<nodes[f[i]].parent<<endl;
+
+        for (int c=0;c<=nodes[f[i]].pt.lastElementIndex;c++){
+            cout<<nodes[f[i]].pt.path[c];
+            cout<<endl;
+        }
     }
-    for (unsigned i=0;i<nPartitions;i++)
-        mu[i].lock();
+};
+    auto p=[this](){
+
+    };
+    modifiednodesEmplace(1,4,2,ptnull,1);
+    modifiednodesEmplace(2,2,4,ptnull,1);
+
+   // invoke(c);
+    modifiednodesEmplace(2,6,4,ptnull,1);
+   // modifiednodesEmplace(1,2,0,ptnull,2);
+    //invoke(c);
+    assignPath(1,2,ptnull);
+   updateParent(1,8,2);
+   nodes[9].pt=ptnull;
+
+    commitUpdates();
+;
+/*vector<thread> t;  //test barrier
+t.reserve(nPartitions);
+for (unsigned i=0;i<nPartitions;i++){
+    t.emplace_back(thread([this]{  int d=3;
+        while(d>=0){
+            d--;
+            barrier.Wait();
+            cout<<d<<endl;
+        }}));
+
+}
+for (unsigned i=0;i<nPartitions;i++){
+    t[i].join();
+
+}
+cout<<nodes[2].parent<<endl<<"aposdj";
+*/
+   return;
+}
+void Graph::divideJobWrapper(){
+
     if (anothercontrolvariable)
     commitUpdates();
     else
         anothercontrolvariable=1;
     divideJob();
-    for (unsigned i=0;i<nPartitions;i++)
-        mu[i].unlock();
-    divideJobM.unlock();
+
 }
 void Graph::divideJob() {
-    unsigned i;
+    int i;
 
-    for (i=0;i<nPartitions;i++) {
-        numberOfNodesToProcess = numberOfNodesToProcess - nOfNodesProcessed[i];
-        nOfNodesProcessed[i]=0;
-        nOfNodesToProcess[i]=0;
+   for (i=0;i<nPartitions;i++) {
+
+       clusters[i].i=0;
+       clusters[i].j=0;
     }
     if (numberOfNodesToProcess<0)
     {
@@ -173,13 +250,11 @@ void Graph::divideJob() {
         return ;
     }
 
-    unsigned x= numberOfNodesToProcess/nPartitions;
+    int x= numberOfNodesToProcess/nPartitions;
     noOfNodesToProcessForEachThread=x;
-
     if (controlVariable==0) {
 
         ncltrs=nPartitions;
-        controlVariable=1;
         for (i = 0; i < nPartitions && x > 0; i++) {
 
             clusters[i].i=partitions[i] = i * x;
@@ -191,8 +266,8 @@ void Graph::divideJob() {
 
         nOfNodesToProcess[0]+=i;
         clusters[0].j+=i;
-
-        for (unsigned c=1;c<nPartitions;c++)
+        clusters[0].i=0;
+        for (int c=1;c<nPartitions;c++)
         {
             partitions[c]+=i;
             clusters[c].i+=i;
@@ -204,33 +279,54 @@ void Graph::divideJob() {
 }
 
 Graph::Graph(FILE *stat, FILE *gra){
-    unsigned i=0;
+    int i=0;
+
+   Barrier barrier(nPartitions);
     init(stat);
     build(gra);
-    numberOfNodesToProcess=numberOfroots;
-   divideJobWrapper();
     printIt();
     test();
+    numberOfNodesToProcess=roots.numberofroots;
+   divideJobWrapper();
+
+
   vector<thread> t;
     t.reserve(nPartitions);
     auto t1 = std::chrono::high_resolution_clock::now();
-    for (unsigned i=0;i<nPartitions;i++)
-        t.push_back( thread( [this, i] { compute_dfs_by_comparing_path(i); }));
-    for (unsigned i=0;i<nPartitions;i++)
+    for (int i=0;i<nPartitions;i++)
+        t.emplace_back( thread( [this, i] { compute_dfs_by_comparing_path(i); }));
+    for (int i=0;i<nPartitions;i++)
         t[i].join();
     auto t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-    cout<<"time "<<duration;
+    cout<<duration<<endl;
+
+    anothercontrolvariable=0;
 }
+void Graph::printIt() {
+InsertLeaf(3);
+    for (struct lf_linked* i=leafs.first;i!=NULL;i=i->next)
+cout<<        i->leaf<<"leaf"<<endl;
+   /* for (int i = 0; i <nNodes; i++) {
 
 
-void Graph::InsertRoot(unsigned int u) {
+        cout << "node: " << i << endl;
+        cout << "parent: " << nodes[i].parent << endl;
+        cout << "path: " << endl;
+        for (int c = 0; c < nodes[i].pt.lastElementIndex; c++)
+            cout << nodes[i].pt.path[c] << endl;
+        cout << endl;
+    }
+*/
+
+}
+void Graph::InsertRoot(int u) {
 roots.array[roots.numberofroots]=InsertRootInLinkedList(u);
 roots.numberofroots++;
 }
 
 void Graph::build(FILE *gra) {
-    unsigned u, v;
+    int u, v;
     char *token;
     char str[2000];
     if (gra!=NULL)
@@ -250,12 +346,13 @@ void Graph::build(FILE *gra) {
         while (token!=NULL) {
             sscanf(token, "%d", &v);
            InsertEdge(u,v);
+           parents[v].insert(u);
           DeleteRoot(v);
             token=strtok(NULL," ");
         }
     }
     {
-        for (unsigned z=0;z<nNodes;z++){
+        for (int z=0;z<nNodes;z++){
             cscnode.csc_nodes[cscnode.i]=z;
             cscnode.csc_indices[cscnode.c]=cscnode.i;
             cscnode.c++;
@@ -274,73 +371,45 @@ void Graph::build(FILE *gra) {
     }
     insertRootsInArray();
 }
-void Graph::InsertEdge(unsigned int u,unsigned int v) {
+void Graph::InsertEdge(int u,int v) {
   edges[u].insert(v);
-  edges[v].insert(u);
+  incomingedges[v].insert(u);
 }
 
-void Graph::DeleteRoot(unsigned int i) {
+void Graph::DeleteRoot(int i) {
     struct rts_linked *next,*previous,*s;
     s=roots.array[i];
+    roots.array[i]=NULL;
    if (s==NULL)
    {
        return;
    }
    next=s->next;
    previous=s->previous;
-   if (i==0)
-   {
-       if (next==NULL)
-       {
-           roots.array[i]=NULL;
-           roots.first=NULL;
-           roots.last=NULL;
-           free(s);
-           return;
-       }
-       next->previous=NULL;
-       roots.first=next;
-       roots.last=roots.first;
-       roots.array[i]=NULL;
-       free(s);
-       return;
-   }
-    if (next==NULL){
-        if(previous!=NULL)
-        previous->next=NULL;
-            roots.last=previous;
-
-        roots.array[i]=NULL;
-        free(s);
-        return;
-    }
-    if (previous==NULL){
-cout<<"big error";
-        roots.first=next;
-        roots.array[i]=NULL;
-        free(s);
-        return ;
-
-    }
-
-   previous->next=next;
-    next->previous=previous;
- //   free(s);
-    return;
-
-
-
-
-
-
+   free(s);
+  if (next==NULL && previous==NULL){
+      roots.first=NULL;
+      roots.last=NULL;
+      return;
+  }
+  if (next!=NULL && previous==NULL){
+     roots.first=next;
+     next->previous=NULL;
+         roots.last=NULL;
+      return;
+  }
+  if (next==NULL && previous!=NULL){
+      roots.last=previous;
+      previous->next=NULL;
+      return ;
+  }
+  if (next!=NULL && previous!=NULL){
+      previous->next=next;
+      next->previous=previous;
+      return ;
+  }
 }
-void Graph::printIt() {
-   /* for (unsigned v=0; v<nNodes;cout<<v<<"thisis V"<<endl,v++)
-for (unsigned i=cscnode.csc_indices[v]; i<cscnode.csc_indices[v+1];i++)
-*/
-
-}
-rts_linked *Graph::InsertRootInLinkedList(unsigned int u) {
+rts_linked *Graph::InsertRootInLinkedList(int u) {
     if (roots.first==NULL){
         roots.first= (struct rts_linked *)(malloc(sizeof(struct rts_linked *)));
         roots.first->previous=NULL;
@@ -359,89 +428,87 @@ rts_linked *Graph::InsertRootInLinkedList(unsigned int u) {
     roots.last=l;
     return l;
 }
-int Graph::getPath(struct path *newpath,unsigned threadIndex,unsigned node) {
-    if (NULL != modifiedVectors[threadIndex].array[node]){
-        newpath=modifiedVectors[threadIndex].array[node]->newPath;
-        return 1;
-    }else{
-        if (nodes[node].pt->lastElementIndex==-1)
+int Graph::getPath(struct path *newpath,int threadIndex,int node) {
+    if (NULL != modifiednodes[threadIndex].array[node]){
+        if (modifiednodes[threadIndex].array[node]->modified!=1) {
+           *newpath = modifiednodes[threadIndex].array[node]->modifiednode.pt;
+            return 1;
+        }
+    }
+        if (isEmpty(&(nodes[node].pt))){
             return 2;
-
+        }
         else{
-            newpath=nodes[node].pt;
+            *newpath=nodes[node].pt;
 
             return 3;
         }
-    }
+
 
 }
 void Graph::compute_dfs_by_comparing_path(int threadIndex) {
-    unsigned i, in1, in2, c = threadIndex, node, ok, childnode,ok1=-1;
-    unsigned xin1,xin2;
-    xin1= (nNodes/nPartitions)*threadIndex;
-    xin2=(nNodes/nPartitions)*(threadIndex+1);
+    int  in1, in2, c = threadIndex;
+    int xin1,xin2;
+    struct path oldPath,newPathS;
+    int node,childnode,ok,ok1=-1;
+    while (roots.numberofroots>0) {
+        c=threadIndex;
+        xin1= clusters[threadIndex].i;// ulteriore ottimizzazione
+        xin2=clusters[threadIndex].j;
 
-    i = 0;
-  struct  rts_linked *rts;
-    rts=roots.first;
-    while (rts!=NULL) {
+        while (clusters[c].i<clusters[c].j ) {
 
-
-
-
-        mu[threadIndex].lock();
-        while (nOfNodesToProcess[threadIndex] > 0) {
-            while (clusters[c].i >= clusters[c].j)c++;
-            struct path *oldPath,*newPath;
             node = roots.array[clusters[c].i]->node;
-            initPath(oldPath);
+            ok = getPath(&newPathS,threadIndex, node);
 
-            in1 = cscnode.csc_indices[roots.array[clusters[c].i]->node] + 1;
-            in2 = cscnode.csc_indices[roots.array[clusters[c].i]->node+ 1];
+            in1 = cscnode.csc_indices[node]+1 ;
+            in2 = cscnode.csc_indices[node+ 1];
+            for (int z = in1; z < in2; z++) {      struct path newPath;
+                InitPath(&newPath);
+           if (ok == 2) {
+                   ok1=1;
+                    EmplaceNodeInPath(&newPath,node);
+                }else{
+                    for (int i=0;i<newPathS.lastElementIndex;i++)
+                        EmplaceNodeInPath(&newPath,newPathS.path[i]);
 
-           ok = getPath(newPath,threadIndex, node);
-            if (ok == 2) {
-                ok1=1;
-                newPath=(struct path*)malloc(sizeof(struct path));
-                initPath(newPath);
-                emplacenodeinpath(node,newPath);
-              modifiedVectorsEmplace(threadIndex,node,newPath);
-            }
-            for (unsigned z = in1; z < in2; z++) {
+                }
+           notLeafs[threadIndex].insert(node);
+
                 childnode = cscnode.csc_nodes[z];
-                emplacenodeinpath(childnode,newPath);
-                ok = getPath(oldPath, threadIndex, childnode);
-
+                EmplaceNodeInPath(&newPath,childnode);
+                ok = getPath(&oldPath, threadIndex, childnode);
                 switch (ok) {
                     case 1:
-                        if (isOldBigger(oldPath,newPath)) {
+                        if (IsPathLower(&newPath,&oldPath)) {
                             if (childnode >= xin1 && childnode < xin2) {
                                 nodes[childnode].parent=node;
                                 nodes[childnode].pt=newPath;
                             } else
                             {
-                                assignPath(threadIndex, childnode, newPath);
+                            assignPath(threadIndex, childnode, newPath);
                             updateParent(threadIndex, node, childnode);
                         }countEdge(threadIndex, childnode);
                         }
                         break;
                     case 2:
                         if (childnode >= xin1 && childnode < xin2) {
-                            nodes[childnode].pt=newPath;
+                            (nodes[childnode].pt)=newPath ;
                             nodes[childnode].parent=node;
                         }else {
-                            modifiedVectorsEmplace(threadIndex, childnode, newPath);
+                            modifiednodesEmplace(threadIndex,childnode,0,newPath,2);
                             updateParent(threadIndex, node, childnode);
                         }
                         countEdge(threadIndex, childnode);
                         break;
                     case 3:
-                        if (isOldBigger(oldPath,newPath)) {
+                        if (IsPathLower(&newPath,&oldPath)) {
                             if (childnode >= xin1 && childnode < xin2) {
                                 nodes[childnode].parent=node;
-                                nodes[childnode].pt=newPath;
+                               nodes[childnode].pt=newPath;
                             } else
                             {
+
                                 assignPath(threadIndex, childnode, newPath);
                                 updateParent(threadIndex, node, childnode);
                             }countEdge(threadIndex, childnode);
@@ -450,175 +517,218 @@ void Graph::compute_dfs_by_comparing_path(int threadIndex) {
                         break;
 
                 }
-                popBackFromPath(newPath);
-
+newPath.lastElementIndex--;
             }
-if (ok1==1) {
+
+/*if (ok1==1) {
     ok1=0;
-    popBackFromPath(newPath);
-}
-            i++;
+    newPath.lastElementIndex--;
+}*/
             clusters[c].i++;
             nOfNodesToProcess[threadIndex]--;
             nOfNodesProcessed[threadIndex]++;
-            rts=rts->next;
         }
-        mu[threadIndex].unlock();
-        divideJobWrapper();
-        divideJobM.lock();
-        divideJobM.unlock();
-        rts=roots.first;
-    }
-}
-void Graph::updateParent(unsigned threadIndex,unsigned node,unsigned childnode){
-    if( modifiedparents[threadIndex].array[childnode]==NULL)
-      modifiedParentsEmplace(threadIndex,node,childnode);
-    else{
-        modifiedparents[threadIndex].array[childnode]->node=childnode;
+        synchroni=0;
+        barrier.Wait();
+        unique_lock<mutex> lck(divideJobM,try_to_lock);
+        if (lck.owns_lock())
+        {
+            synchroni++;
+            debug++;
+            if (debug==1){
 
-        modifiedparents[threadIndex].array[childnode]->newParent=node;
+            }
+         if (synchroni==1)
+            divideJobWrapper();
+            lck.unlock();
+        }
+        barrier.Wait();
+    }
+
+}
+void Graph::updateParent(int threadIndex,int node,int childnode){
+    struct path c;
+    c.path=(int *)malloc(sizeof(int)*10);
+    if( modifiednodes[threadIndex].array[childnode]==NULL)
+    modifiednodesEmplace(threadIndex,node,childnode,c,1);
+    else{
+        modifiednodes[threadIndex].array[childnode]->node=childnode;
+        modifiednodes[threadIndex].array[childnode]->modifiednode.parent=node;
+        if (modifiednodes[threadIndex].array[childnode]->modified==2){
+            modifiednodes[threadIndex].array[childnode]->modified=3;
+        }
     }
 }
 void Graph::commitUpdates(){
-    controlVariable=0;
-    map<unsigned, unsigned> c;
-    struct rts newroots;
-    newroots.array=(struct rts_linked **)(malloc(sizeof(struct rts_linked* ) *nNodes ));
+    map<int, int> c;
 
-    newroots.last=NULL;
-    newroots.first=NULL;
-    roots=newroots;
-    for (unsigned i=0;i<nPartitions;i++){
-        for ( struct mp_linked *c=modifiedparents[i].first ; c!=NULL; c=c->next ) {
-            nodes[c->node].parent = c->newParent;
-//      free(c);      free(modifiedparents[i].array[c->node]);
-        modifiedparents[i].array[c->node]=NULL;
 
-        }modifiedparents[i].last=modifiedparents[i].first=NULL;
+    roots.first=NULL;
+    roots.last=NULL;
+    roots.numberofroots=0;
+    numberOfroots=roots.numberofroots;
+struct path pt;
+int ok,ok1=-2;
+    for (int i=0;i<nPartitions;i++){
+        for (auto &f: notLeafs[i]){
+//            leafs.erase(f);
+//cout<<f<<"asdd "<<endl;
+DeleteLeaf(f);
+        }
+        for ( struct mn_linked *c=modifiednodes[i].first ; c!=NULL; c=c->next ) {
+            ok=getPath(&pt,0,c->node);
+            if (ok==3){
+            if (IsPathLower(&(c->modifiednode.pt),&pt)) {
+                ok1=4;
+            }
+            }
+                switch (c->modified){
+                case 1:
+                    if(ok==3 && ok1==4)
+                    nodes[c->node].parent = c->modifiednode.parent;
+                    if(ok!=3)
+                        nodes[c->node].parent = c->modifiednode.parent;
+                    break;
+                case 2:
+                        if(ok==3 && ok1==4){
+                            nodes[c->node] = c->modifiednode;
+                    }
+                    if(ok!=3){
+                        nodes[c->node] = c->modifiednode;
+                    }
 
-      for(struct mv_linked *c=modifiedVectors[i].first;c!=NULL;c=c->next) {
-          nodes[c->node].pt=c->newPath;
-//        no free to spare time
-          modifiedVectors[i].array[c->node]=NULL;
-      }
-      for (unsigned o=0; o<lengthOfArrayEdgesVisited[i];o++){
-           if (c.find(nedgesvisited[i][o])!= c.end())
+                    break;
+                case 3:
+                        if(ok==3 && ok1==4){
+                            nodes[c->node] = c->modifiednode;
+
+                    }
+                    if(ok!=3){
+                        nodes[c->node] = c->modifiednode;
+                    }
+
+                    break;
+            }
+
+            ok1=-2;
+            free(modifiednodes[i].array[c->node]);
+        modifiednodes[i].array[c->node]=NULL;
+        }modifiednodes[i].last=modifiednodes[i].first=NULL;
+      for (int o=0; o<lengthOfArrayEdgesVisited[i];o++){
+          if (c.find(nedgesvisited[i][o])!= c.end())
            {
                c.find(nedgesvisited[i][o])->second+=edgesvisited[i][nedgesvisited[i][o]];
 
 
-               if (edges[nedgesvisited[i][o]].size()<= c.find(nedgesvisited[i][o])->second){
+               if (incomingedges[nedgesvisited[i][o]].size()<= c.find(nedgesvisited[i][o])->second){
                    InsertRoot(nedgesvisited[i][o]);
-                   edgesvisited[i][nedgesvisited[i][o]]=0;
-                   c.find(nedgesvisited[i][o])->second=0;
-                   nedgesvisited[i][o]=-1;
-
-
+                   nedgesvisited[i][o]=nedgesvisited[i][lengthOfArrayEdgesVisited[i]-1];
+                   lengthOfArrayEdgesVisited[i]--;
+                  o--;
                }
            }
            else{
                c.emplace(nedgesvisited[i][o],edgesvisited[i][nedgesvisited[i][o]]);
-               if (edges[nedgesvisited[i][o]].size()<= c.find(nedgesvisited[i][o])->second){
+               if (incomingedges[nedgesvisited[i][o]].size()<= c.find(nedgesvisited[i][o])->second){
                    InsertRoot(nedgesvisited[i][o]);
-                   edgesvisited[i][nedgesvisited[i][o]]=0;
-                   c.find(nedgesvisited[i][o])->second=0;
-                   nedgesvisited[i][o]=-1;
-
-
+                   nedgesvisited[i][o]=nedgesvisited[i][lengthOfArrayEdgesVisited[i]-1];
+                   lengthOfArrayEdgesVisited[i]--;
+o--;
                }
            }
+
       }
-      modifiedVectors[i].first=NULL;
-        modifiedVectors[i].last=NULL;
         nOfNodesProcessed[i]=0;
-        lengthOfArrayEdgesVisited[i]=0;
-        lengthOfArrayEdgesVisited[i]=0;
-        numberOfNodesToProcess=roots.numberofroots;
+
 
     }
+    numberOfNodesToProcess=roots.numberofroots;
 }
 
-void Graph::modifiedVectorsEmplace(int index, unsigned int node, struct path *newPath) {
-    struct mv_linked * c,*n;
-    c=(struct mv_linked *)(malloc(sizeof(struct mv_linked )));
-    c->newPath=newPath;
-    c->node=node;
-    if (modifiedVectors[index].array[node]!=NULL){}else
-    modifiedVectors[index].array[node]=c;
-    if (modifiedVectors[index].first==NULL)
-{
-   c->next=NULL;
-   c->previous=NULL;
-    modifiedVectors[index].first=c;
 
-    modifiedVectors[index].last=NULL;
+
+void Graph::modifiednodesEmplace(int index, int node, int child_node,struct path newPath, int modified) {
+    struct mn_linked *c, *n;
+    int _node;
+    c = (struct mn_linked *) (malloc(sizeof(struct mn_linked)));
+    switch (modified) {
+        case 1://modified parent emplace =1
+            c->modifiednode.parent = node;
+            c->node = child_node;
+            _node = child_node;
+            c->modified = 1;
+            break;
+        case 2://modified vectors emplace modified=2
+            (c->modifiednode.pt) = newPath;
+            c->node = node;
+            _node = node;
+            c->modified = 2;
+            break;
+    }
+    if (modifiednodes[index].array[_node] != NULL) {
+        if (modifiednodes[index].array[_node]->modified == 3) {
+            if (modified == 2) {
+            (modifiednodes[index].array[_node]->modifiednode.pt) = newPath;
+
+        } else {
+            modifiednodes[index].array[_node]->modifiednode.parent = node;
+        }
+    } else if (modifiednodes[index].array[_node]->modified != modified) {
+
+        modifiednodes[index].array[_node]->modified = 3;
+        if (modifiednodes[index].array[_node]->modified == 1) {
+            modifiednodes[index].array[_node]->modifiednode.parent= c->modifiednode.parent ;
+
+        } else {
+            modifiednodes[index].array[_node]->modifiednode.pt=c->modifiednode.pt ;
+        }
+
+    }
+        else if (modifiednodes[index].array[_node]->modified == modified) {
+if(            modifiednodes[index].array[_node]->modified==2)
+    modifiednodes[index].array[_node]->modifiednode.pt=newPath;
+else if(modifiednodes[index].array[_node]->modified==1){
+    modifiednodes[index].array[_node]->modifiednode.parent=node;
+}
+        }
+
     return;
 }
-    if (modifiedVectors[index].last==NULL){
-       c->previous=modifiedVectors[index].first;
-      modifiedVectors[index].first->next=c;
-       c->next=NULL;
-        modifiedVectors[index].last=c;
-       return;
-    }
-    c->previous=modifiedVectors[index].first;
-    n=modifiedVectors[index].first->next;
-    modifiedVectors[index].first->next=c;
-    if (n==NULL) {
-        modifiedVectors[index].last = c;
-
-
-    modifiedVectors[index].first->next=modifiedVectors[index].last;
-        return ;
-    }
-    n->previous=c;
-    c->next=n;
-}
-
-void Graph::modifiedParentsEmplace(unsigned int index, unsigned int node, unsigned int child_node) {
-    struct mp_linked * c,*n;
-    c=(struct mp_linked *)(malloc(sizeof(struct mp_linked *)));
-    c->newParent=node;
-    c->node=child_node;
-
-    if (modifiedparents[index].array[child_node]!=NULL){
-
-    }else
-        modifiedparents[index].array[child_node]=c;
-    if (modifiedparents[index].first==NULL)
+        modifiednodes[index].array[_node]=c;
+    if (modifiednodes[index].first==NULL)
     {
         c->next=NULL;
         c->previous=NULL;
-        modifiedparents[index].first=c;
+        modifiednodes[index].first=c;
 
-        modifiedparents->last=NULL;
+        modifiednodes->last=NULL;
         return;
     }
-    if (modifiedparents[index].last==NULL){
-        c->previous=modifiedparents[index].first;
-        modifiedparents[index].first->next=c;
+    if (modifiednodes[index].last==NULL){
+        c->previous=modifiednodes[index].first;
+        modifiednodes[index].first->next=c;
         c->next=NULL;
-        modifiedparents[index].last=c;
+        modifiednodes[index].last=c;
         return;
     }
-    c->previous=modifiedparents[index].first;
-    n=modifiedparents[index].first->next;
-    modifiedparents[index].first->next=c;
+    c->previous=modifiednodes[index].first;
+    n=modifiednodes[index].first->next;
+    modifiednodes[index].first->next=c;
     if (n==NULL) {
-        modifiedparents[index].last = c;
+        modifiednodes[index].last = c;
 
 
-        modifiedparents[index].first->next=modifiedparents[index].last;
+        modifiednodes[index].first->next=modifiednodes[index].last;
         return ;
     }
     n->previous=c;
     c->next=n;
 }
-
-void Graph::countEdge(unsigned int threadIndex, unsigned int node) {
+void Graph::countEdge(int threadIndex, int node) {
     if(edgesvisited[threadIndex][node]==0)
     {
         nedgesvisited[threadIndex][lengthOfArrayEdgesVisited[threadIndex]]=node;
+
         lengthOfArrayEdgesVisited[threadIndex]++;
     }
     edgesvisited[threadIndex][node]++;
@@ -626,7 +736,7 @@ void Graph::countEdge(unsigned int threadIndex, unsigned int node) {
 }
 
 void Graph::insertRootsInArray() {
-    unsigned c=0;
+    int c=0;
     free(roots.array);
     roots.array=(struct rts_linked **)(malloc(sizeof(struct rts_linked* ) *nNodes ));
 
@@ -641,49 +751,120 @@ void Graph::insertRootsInArray() {
     numberOfNodesToProcess=c;
 }
 
-void Graph::emplacenodeinpath(int node, struct path *pt) {
-    if (pt->lastElementIndex+1> pt->sPath)
-    {
-        int newSize=(pt->sPath*3);
-        struct path *aBiggerPathIsNeeded;
-        aBiggerPathIsNeeded=(struct path*)malloc(sizeof(struct path));
-        aBiggerPathIsNeeded->path= (int *) malloc(sizeof(int) * newSize);
-        aBiggerPathIsNeeded->sPath=newSize;
-        aBiggerPathIsNeeded->lastElementIndex=pt->lastElementIndex;
-        for (unsigned i=0;i<=pt->lastElementIndex;i++)
-           aBiggerPathIsNeeded->path[i]= pt->path[i];
-     //   free(pt);
+bool Graph::isEmpty(struct path * pt) {
+    if(pt->lastElementIndex==0)
+        return true;
+    return false;
+}
 
-        pt=aBiggerPathIsNeeded;
+bool Graph::IsPathLower(struct path *pt1, struct path *pt2) {
+   int minc;
+   minc=min((*pt1).lastElementIndex,(*pt2).lastElementIndex);
+    for (int i=0;i<minc;i++){
+        if (pt1->path[i]<pt2->path[i])
+            return true;
     }
-    pt->lastElementIndex++;
-    pt->path[pt->lastElementIndex]=node;
+    return false;
+}
+
+void Graph::InitPath(struct path *p) {
+p->path=(int *)malloc(sizeof(int)*10);
+}
+
+void Graph::EmplaceNodeInPath(struct path *pPath, int node) {
+int *c;
+ if (pPath->lastElementIndex>=pPath->sPath-1){
+     c=(int*)malloc(sizeof(int)*pPath->sPath);
+     for (int i=0;i<pPath->lastElementIndex;i++)
+         c[i]=pPath->path[i];
+     free(pPath->path);
+     pPath->path=NULL;
+     pPath->sPath=pPath->sPath*3;
+     pPath->path=(int*)malloc(sizeof(int)*pPath->sPath);
+     for (int i=0;i<pPath->lastElementIndex;i++)
+         pPath->path[i]=c[i];
+     pPath->path[pPath->lastElementIndex]=node;
+ }else
+pPath->path[pPath->lastElementIndex]= node;
+
+    pPath->lastElementIndex++;
+}
+
+void Graph::copyPath(struct path *pt1, struct path *pt2) {
+   pt1->path=NULL;
+    pt1->path=(int *)malloc(sizeof(int)*pt2->sPath);
+
+//for(int i=0;i< pt2->lastElementIndex;i++)
+  // pt1->path[i]=pt2->path[i];
+    memcpy(pt1->path, pt2->path, 4*pt2->lastElementIndex);
+    pt1->lastElementIndex=pt2->lastElementIndex;
     return;
 }
 
-
-
-void Graph::initPath(struct path *pt){
-if(pt==NULL)
-    pt=(struct path*)malloc(sizeof(struct path));
-    pt->path= (int*)(malloc(sizeof(int) * 10));
-    pt->sPath=10;
-    pt->lastElementIndex=-1;
+void Graph::SubGraphSize(int threadIndex) {
 
 }
-int Graph::isOldBigger(struct path *opt, struct path *npt){
-    int x;
-    x=min(opt->lastElementIndex,npt->lastElementIndex);
-    if (opt->lastElementIndex==-1)
-        return 1;
-    for (unsigned i=0;i<=x;i++)
-        if (opt->path[i]>npt->path[i])
-            return 1;
-        return 0;
+
+void Graph::InsertLeaf(int u) {
+    leafs.array[leafs.numberofleafs]=InsertLeafInlinkedList(u);
+    cout<<leafs.array[leafs.numberofleafs]->leaf<<"  plpl"<<endl;
+    leafs.numberofleafs++;
 }
 
-void Graph::popBackFromPath(struct path *pt) {
+struct lf_linked *Graph::InsertLeafInlinkedList(int u) {
 
-    pt->lastElementIndex--;
-
+    if (leafs.first==NULL){
+        leafs.first= (struct lf_linked *)(malloc(sizeof(struct lf_linked *)));
+        leafs.first->previous=NULL;
+        leafs.first->next=NULL;
+        leafs.first->leaf=u;
+        leafs.last=leafs.first;
+        return leafs.first;
+    }
+    struct lf_linked *l;
+    l=leafs.last;
+    l->next= (struct lf_linked *)(malloc(sizeof(struct lf_linked*)));
+    l=l->next;
+    l->previous=leafs.last;
+    l->leaf=u;
+    l->next=NULL;
+    leafs.last=l;
+    return l;
 }
+
+void Graph::DeleteLeaf(const int &i) {
+    struct lf_linked *next,*previous,*s;
+    s=leafs.array[i];
+    leafs.array[i]=NULL;
+    if (s==NULL)
+    {
+        return;
+    }
+    next=s->next;
+    previous=s->previous;
+    free(s);
+    if (next==NULL && previous==NULL){
+        leafs.first=NULL;
+        leafs.last=NULL;
+        return;
+    }
+    if (next!=NULL && previous==NULL){
+        leafs.first=next;
+        next->previous=NULL;
+        leafs.last=NULL;
+        return;
+    }
+    if (next==NULL && previous!=NULL){
+        leafs.last=previous;
+        previous->next=NULL;
+        return ;
+    }
+    if (next!=NULL && previous!=NULL){
+        previous->next=next;
+        next->previous=previous;
+        return ;
+    }
+}
+
+
+
