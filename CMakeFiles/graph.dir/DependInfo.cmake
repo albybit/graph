@@ -4,9 +4,9 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/alby/Desktop/CLionProjects/graph/Graph.cpp" "/home/alby/Desktop/CLionProjects/graph/CMakeFiles/graph.dir/Graph.cpp.o"
-  "/home/alby/Desktop/CLionProjects/graph/Path.cpp" "/home/alby/Desktop/CLionProjects/graph/CMakeFiles/graph.dir/Path.cpp.o"
-  "/home/alby/Desktop/CLionProjects/graph/main.cpp" "/home/alby/Desktop/CLionProjects/graph/CMakeFiles/graph.dir/main.cpp.o"
+  "/home/alby/graph/graph/Graph.cpp" "/home/alby/graph/graph/CMakeFiles/graph.dir/Graph.cpp.o"
+  "/home/alby/graph/graph/Path.cpp" "/home/alby/graph/graph/CMakeFiles/graph.dir/Path.cpp.o"
+  "/home/alby/graph/graph/main.cpp" "/home/alby/graph/graph/CMakeFiles/graph.dir/main.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 

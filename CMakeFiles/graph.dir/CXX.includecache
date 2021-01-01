@@ -6,9 +6,9 @@
 
 #IncludeRegexTransform: 
 
-/home/alby/Desktop/CLionProjects/graph/Graph.cpp
+/home/alby/graph/graph/Graph.cpp
 Graph.h
-/home/alby/Desktop/CLionProjects/graph/Graph.h
+/home/alby/graph/graph/Graph.h
 stdio.h
 -
 iostream
@@ -26,7 +26,7 @@ cstring
 condition_variable
 -
 Path.h
-/home/alby/Desktop/CLionProjects/graph/Path.h
+/home/alby/graph/graph/Path.h
 boost/thread.hpp
 -
 thread
@@ -34,7 +34,7 @@ thread
 chrono
 -
 
-/home/alby/Desktop/CLionProjects/graph/Graph.h
+/home/alby/graph/graph/Graph.h
 fstream
 -
 vector
@@ -50,9 +50,25 @@ unordered_map
 bits/stdc++.h
 -
 Path.h
-/home/alby/Desktop/CLionProjects/graph/Path.h
+/home/alby/graph/graph/Path.h
 
-/home/alby/Desktop/CLionProjects/graph/Path.h
+/home/alby/graph/graph/Path.cpp
 Graph.h
-/home/alby/Desktop/CLionProjects/graph/Graph.h
+/home/alby/graph/graph/Graph.h
+Path.h
+/home/alby/graph/graph/Path.h
+
+/home/alby/graph/graph/Path.h
+Graph.h
+/home/alby/graph/graph/Graph.h
+
+/home/alby/graph/graph/main.cpp
+iostream
+-
+stdio.h
+-
+fstream
+-
+Graph.h
+/home/alby/graph/graph/Graph.h
 

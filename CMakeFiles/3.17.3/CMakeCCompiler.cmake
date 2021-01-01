@@ -70,7 +70,7 @@ endif()
 
 
 
-set(CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES "/usr/lib64/gcc/x86_64-generic-linux/10/include;/usr/lib64/gcc/x86_64-generic-linux/10/include-fixed;/usr/include")
+set(CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES "/usr/lib64/gcc/x86_64-generic-linux/10/include;/usr/local/include;/usr/lib64/gcc/x86_64-generic-linux/10/include-fixed;/usr/include")
 set(CMAKE_C_IMPLICIT_LINK_LIBRARIES "gcc;gcc_s;c;gcc;gcc_s")
 set(CMAKE_C_IMPLICIT_LINK_DIRECTORIES "/usr/lib64/gcc/x86_64-generic-linux/10;/usr/lib64;/lib64")
 set(CMAKE_C_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES "")

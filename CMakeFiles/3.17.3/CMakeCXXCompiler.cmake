@@ -82,7 +82,7 @@ endif()
 
 
 
-set(CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES "/usr/include/c++/10;/usr/include/c++/10/x86_64-generic-linux;/usr/include/c++/10/backward;/usr/lib64/gcc/x86_64-generic-linux/10/include;/usr/lib64/gcc/x86_64-generic-linux/10/include-fixed;/usr/include")
+set(CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES "/usr/include/c++/10;/usr/include/c++/10/x86_64-generic-linux;/usr/include/c++/10/backward;/usr/lib64/gcc/x86_64-generic-linux/10/include;/usr/local/include;/usr/lib64/gcc/x86_64-generic-linux/10/include-fixed;/usr/include")
 set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "stdc++;m;gcc_s;gcc;c;gcc_s;gcc")
 set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "/usr/lib64/gcc/x86_64-generic-linux/10;/usr/lib64;/lib64")
 set(CMAKE_CXX_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES "")

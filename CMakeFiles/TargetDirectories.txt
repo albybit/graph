@@ -1,3 +1,3 @@
-/home/alby/Desktop/CLionProjects/graph/CMakeFiles/rebuild_cache.dir
-/home/alby/Desktop/CLionProjects/graph/CMakeFiles/edit_cache.dir
-/home/alby/Desktop/CLionProjects/graph/CMakeFiles/graph.dir
+/home/alby/graph/graph/CMakeFiles/rebuild_cache.dir
+/home/alby/graph/graph/CMakeFiles/edit_cache.dir
+/home/alby/graph/graph/CMakeFiles/graph.dir
