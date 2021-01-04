@@ -52,12 +52,12 @@ struct lf_linked{
 struct m_pplinked{
     struct m_pplinked *next,*previous;
     unsigned long long pre,post;
-    int node;
+    int node,visited=0;
     int modified=0; //1 modified pre, 2 modified post, 3 modified both
 };
 struct m_pp{
     struct m_pplinked *first,*last,**array;
-    int numberofmpp=0;
+    int numberofmpp=0,coda=0;
 };
 struct leaf_st{
     struct lf_linked ** array;
@@ -74,6 +74,7 @@ struct rts{
     struct rts_linked *first;
     struct rts_linked *last;
     int numberofroots=0;
+    int coda=0;
 };
 class Graph {
     int nNodes;
@@ -102,6 +103,7 @@ class Graph {
     int numberOfroots;
     struct rts roots;
     struct rts secroots;
+    struct rts queue;
     struct nodesAP *clusters;
     int ncltrs=0;
    struct leaf_st leafs;
