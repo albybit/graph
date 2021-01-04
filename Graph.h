@@ -5,10 +5,11 @@
 #include <set>
 #include <unordered_set>
 #include <mutex>
+#include <type_traits>
 #include <unordered_map>
 #include <bits/stdc++.h>
 #include "Barrier.h"
-#define nPartitions 1
+#define nPartitions 4
 using namespace std;
 struct path{
     int *path, sPath=10, lastElementIndex=0;
@@ -17,7 +18,8 @@ struct path{
 struct Node
 {
     int id, visited= 0;
-    int parent = -1, isItLeaf = -1, end = -1, subTreeSize= -1;
+    int parent = -1, isItLeaf = -1, end = -1;
+    unsigned  long long subTreeSize= -1,pre,post;
     struct path pt;
 };
 struct csc_Node{
@@ -47,6 +49,16 @@ struct lf_linked{
     int leaf=-1;
 
 };
+struct m_pplinked{
+    struct m_pplinked *next,*previous;
+    unsigned long long pre,post;
+    int node;
+    int modified=0; //1 modified pre, 2 modified post, 3 modified both
+};
+struct m_pp{
+    struct m_pplinked *first,*last,**array;
+    int numberofmpp=0;
+};
 struct leaf_st{
     struct lf_linked ** array;
     struct lf_linked *first,*last;
@@ -73,19 +85,23 @@ class Graph {
     int synchroni=0;
     int numberOfNodesToProcess,noOfNodesToProcessForEachThread;
     struct mn modifiednodes[nPartitions];
+    int *processedleafs;
     int *nedgesvisited[nPartitions];
     int *lengthOfArrayEdgesVisited;
     int *edgesvisited[nPartitions];
+   struct m_pp modifiedprepost[nPartitions];
+    int *subTreeSize[nPartitions];
+    int subTreeSize_length[nPartitions];
+    int *subTreeSize_nodes[nPartitions];
     vector< set<int> >edges;
     vector <set <int>> parents;
     vector< set<int> >incomingedges;
     int debug=0;
     struct Node *nodes;
-
+    mutex *msyn;
     int numberOfroots;
     struct rts roots;
-    struct rts **rootspointer;
-    struct rts **rtsPartitions;
+    struct rts secroots;
     struct nodesAP *clusters;
     int ncltrs=0;
    struct leaf_st leafs;
@@ -94,10 +110,7 @@ class Graph {
     int nOfNodesToProcess[nPartitions];
     int nOfNodesProcessed[nPartitions];
     //vector<mutex> muxes;
-    struct path rootsVector;
     struct csc_Node cscnode;
-    vector<int> graph;
-    vector<int> graph_csc; //compressed graph
     void divideJob(); // tested
     int anothercontrolvariable=0;
     void commitUpdates(); // tested
@@ -143,9 +156,16 @@ public:
     void InitPath(struct path *p);
     void SubGraphSize(int threadIndex);
     void EmplaceNodeInPath(struct path *pPath, int node);
-    void copyPath(struct path *pt1,struct path *pt2);
-
+    void CommitUpdatesII();
     void DeleteLeaf(const int &f);
+    void InsertRootIIofArray();
+    void InsertRootII(int u);
+    void PrePostOrder(int threadIndex);
+
+    void CommitPrePost();
+
+    void ModifiedPrePost(int threadIndex, int node, unsigned long long pre, unsigned long long post);
+
 };
 
 

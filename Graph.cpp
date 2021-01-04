@@ -89,17 +89,26 @@ void Graph::init ( FILE *stat){
       modifiednodes[i].first=NULL;
       edgesvisited[i]= static_cast<int *>(calloc(v, sizeof(int)));
       nedgesvisited[i]= static_cast<int *>(malloc(sizeof(int)*v));
+        subTreeSize_length[i]=0;
+       subTreeSize[i]=static_cast<int *>(calloc(v, sizeof(int)));
+        subTreeSize_nodes[i]=static_cast<int *>(calloc(v, sizeof(int)));
+        modifiedprepost[i].array=(struct m_pplinked **)(malloc(sizeof(struct m_pplinked *) * v));
+        modifiedprepost[i].last=modifiedprepost[i].first=NULL;
     }
     nNodes=v;
    edges.reserve(nNodes);
    parents.reserve(nNodes);
 
+    processedleafs=static_cast<int*>(calloc(nNodes,sizeof(int)));
     incomingedges.reserve(nNodes);
-
+    msyn= static_cast<mutex *>(malloc(sizeof(mutex) * nNodes));
     roots.array=(struct rts_linked **)(malloc(sizeof(struct rts_linked* ) * v));
+    secroots.array=(struct rts_linked **)(malloc(sizeof(struct rts_linked* ) * v));
     leafs.array=(struct lf_linked **)(malloc(sizeof(struct lf_linked* ) * v));
     leafs.last=leafs.first=NULL;
 
+    secroots.last=NULL;
+    secroots.first=NULL;
     roots.last=NULL;
     roots.first=NULL;
     for(int u=0;u<v;u++) {
@@ -108,7 +117,6 @@ void Graph::init ( FILE *stat){
         edges.emplace_back(c);
         parents.emplace_back(c);
         incomingedges.emplace_back(c);
-        InsertLeaf(u);
        // edges.emplace_back(c);
         //edgesVisited.reserve(nPartitions);
     }
@@ -128,11 +136,11 @@ void Graph::init ( FILE *stat){
     stri.clear();
     nodes= static_cast<Node *>(malloc(sizeof(struct Node) * nNodes));
     lengthOfArrayEdgesVisited=(int *)calloc(nPartitions,sizeof(int));
-    //for (int i=0;i<nNodes;i++) {
+    for (int i=0;i<nNodes;i++) {
 
-     //   nodes[i].parent=-1;
-     //   nodes[i].pt.path=(int *) malloc(sizeof(int)*10);
- //   }
+        nodes[i].parent=-1;
+        nodes[i].pt.path=(int *) malloc(sizeof(int)*10);
+    }
     Barrier barrier(nPartitions);
 
 }
@@ -204,7 +212,7 @@ InitPath(&pt2);
     //invoke(c);
     assignPath(1,2,ptnull);
    updateParent(1,8,2);
-   nodes[9].pt=ptnull;
+   nodes[9].pt=ptnulll;
 
     commitUpdates();
 ;
@@ -284,11 +292,12 @@ Graph::Graph(FILE *stat, FILE *gra){
    Barrier barrier(nPartitions);
     init(stat);
     build(gra);
-    printIt();
-    test();
     numberOfNodesToProcess=roots.numberofroots;
    divideJobWrapper();
 
+   for (int i=0;i<roots.numberofroots;i++){
+       InsertRootII(roots.array[i]->node);
+   }
 
   vector<thread> t;
     t.reserve(nPartitions);
@@ -300,33 +309,80 @@ Graph::Graph(FILE *stat, FILE *gra){
     auto t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
     cout<<duration<<endl;
+    anothercontrolvariable=0;
+    controlVariable=0;
+    for (int i= 0;i<nPartitions;i++){
+        nedgesvisited[i]=static_cast<int *>(calloc(nNodes,sizeof(int)));
+        edgesvisited[i]=static_cast<int *>(calloc(nNodes,sizeof(int)));
+        lengthOfArrayEdgesVisited[i]=0;
+        clusters[i].i=clusters[i].j=0;
+    }
+    numberOfNodesToProcess=leafs.numberofleafs;
+    divideJobWrapper();
+
+    vector<thread> th1;
+    th1.reserve(nPartitions);
+    t1 = std::chrono::high_resolution_clock::now();
+    for (int i=0;i<nPartitions;i++)
+        th1.emplace_back( thread( [this, i] { SubGraphSize(i); }));
+    for (int i=0;i<nPartitions;i++)
+        th1[i].join();
+    t2 = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+
 
     anothercontrolvariable=0;
+    controlVariable=0;
+    for (int i= 0;i<nPartitions;i++){
+        nedgesvisited[i]=static_cast<int *>(calloc(nNodes,sizeof(int)));
+        edgesvisited[i]=static_cast<int *>(calloc(nNodes,sizeof(int)));
+        lengthOfArrayEdgesVisited[i]=0;
+        clusters[i].i=clusters[i].j=0;
+    }
+    numberOfNodesToProcess=secroots.numberofroots;
+    divideJobWrapper();
+    vector<thread> th2;
+    th2.reserve(nPartitions);
+    t1 = std::chrono::high_resolution_clock::now();
+    for (int i=0;i<nPartitions;i++)
+        th2.emplace_back( thread( [this, i] { PrePostOrder(i); }));
+    for (int i=0;i<nPartitions;i++)
+        th2[i].join();
+    t2 = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+
+    printIt();
+
+
+
+
 }
 void Graph::printIt() {
-InsertLeaf(3);
-    for (struct lf_linked* i=leafs.first;i!=NULL;i=i->next)
-cout<<        i->leaf<<"leaf"<<endl;
-   /* for (int i = 0; i <nNodes; i++) {
+    for (int i = 0; i <nNodes; i++) {
 
 
         cout << "node: " << i << endl;
         cout << "parent: " << nodes[i].parent << endl;
+        cout<<"subgraphSize:"<<nodes[i].subTreeSize<<endl;
+        cout<<" pre:"<<nodes[i].pre<<endl;
+        cout<<" post:"<<nodes[i].post<<endl;
         cout << "path: " << endl;
+if(nodes[i].subTreeSize<0)break;
         for (int c = 0; c < nodes[i].pt.lastElementIndex; c++)
             cout << nodes[i].pt.path[c] << endl;
         cout << endl;
     }
-*/
+
 
 }
 void Graph::InsertRoot(int u) {
+
 roots.array[roots.numberofroots]=InsertRootInLinkedList(u);
 roots.numberofroots++;
 }
 
 void Graph::build(FILE *gra) {
-    int u, v;
+    int u, v,cont=0;
     char *token;
     char str[2000];
     if (gra!=NULL)
@@ -343,13 +399,17 @@ void Graph::build(FILE *gra) {
         sscanf(token,"%[^#]s",str);
         token = strtok(str, " ");
         //  walk through other tokens
+        cont=0;
         while (token!=NULL) {
             sscanf(token, "%d", &v);
            InsertEdge(u,v);
+           cont++;
            parents[v].insert(u);
           DeleteRoot(v);
             token=strtok(NULL," ");
         }
+        if (cont==0)
+            InsertLeaf(u);
     }
     {
         for (int z=0;z<nNodes;z++){
@@ -473,7 +533,6 @@ void Graph::compute_dfs_by_comparing_path(int threadIndex) {
                         EmplaceNodeInPath(&newPath,newPathS.path[i]);
 
                 }
-           notLeafs[threadIndex].insert(node);
 
                 childnode = cscnode.csc_nodes[z];
                 EmplaceNodeInPath(&newPath,childnode);
@@ -570,11 +629,7 @@ void Graph::commitUpdates(){
 struct path pt;
 int ok,ok1=-2;
     for (int i=0;i<nPartitions;i++){
-        for (auto &f: notLeafs[i]){
-//            leafs.erase(f);
-//cout<<f<<"asdd "<<endl;
-DeleteLeaf(f);
-        }
+
         for ( struct mn_linked *c=modifiednodes[i].first ; c!=NULL; c=c->next ) {
             ok=getPath(&pt,0,c->node);
             if (ok==3){
@@ -701,7 +756,7 @@ else if(modifiednodes[index].array[_node]->modified==1){
         c->previous=NULL;
         modifiednodes[index].first=c;
 
-        modifiednodes->last=NULL;
+        modifiednodes[index].last=NULL;
         return;
     }
     if (modifiednodes[index].last==NULL){
@@ -742,7 +797,6 @@ void Graph::insertRootsInArray() {
 
     for (struct rts_linked *d = roots.first; d!=NULL; d=d->next){
        roots.array[c]=d;
-
         c++;
 
     }
@@ -789,25 +843,100 @@ pPath->path[pPath->lastElementIndex]= node;
 
     pPath->lastElementIndex++;
 }
+void Graph::CommitUpdatesII(){
+    leafs.first=leafs.last=NULL;
+    leafs.numberofleafs=0;
+    map<int,int> c;
 
-void Graph::copyPath(struct path *pt1, struct path *pt2) {
-   pt1->path=NULL;
-    pt1->path=(int *)malloc(sizeof(int)*pt2->sPath);
+    for (int i=0;i<nPartitions;i++){
 
-//for(int i=0;i< pt2->lastElementIndex;i++)
-  // pt1->path[i]=pt2->path[i];
-    memcpy(pt1->path, pt2->path, 4*pt2->lastElementIndex);
-    pt1->lastElementIndex=pt2->lastElementIndex;
-    return;
+
+        for (int o=0; o<lengthOfArrayEdgesVisited[i];o++){
+            if (processedleafs[nedgesvisited[i][o]]<1) {
+                if (c.find(nedgesvisited[i][o]) != c.end()) {
+                    c.find(nedgesvisited[i][o])->second += edgesvisited[i][nedgesvisited[i][o]];
+
+
+                    if (edges[nedgesvisited[i][o]].size() <= c.find(nedgesvisited[i][o])->second) {
+                        InsertLeaf(nedgesvisited[i][o]);
+                        nedgesvisited[i][o] = nedgesvisited[i][lengthOfArrayEdgesVisited[i] - 1];
+                        lengthOfArrayEdgesVisited[i]--;
+                        o--;
+                    }
+                } else {
+                    c.emplace(nedgesvisited[i][o], edgesvisited[i][nedgesvisited[i][o]]);
+                    if (edges[nedgesvisited[i][o]].size() <= c.find(nedgesvisited[i][o])->second) {
+                        InsertLeaf(nedgesvisited[i][o]);
+                        nedgesvisited[i][o] = nedgesvisited[i][lengthOfArrayEdgesVisited[i] - 1];
+                        lengthOfArrayEdgesVisited[i]--;
+                        o--;
+
+                   }
+                }
+            }
+        }
+    }
 }
 
 void Graph::SubGraphSize(int threadIndex) {
+    int  in1, in2, c = threadIndex;
+    int xin1,xin2;
+    int node,childnode,ok,ok1=-1,parent,sz;
 
+    while(leafs.numberofleafs>0){
+        c=threadIndex;
+        while(clusters[c].i<clusters[c].j){
+            node=leafs.array[clusters[c].i]->leaf;
+            for (auto &prt : parents[node]) {
+                countEdge(threadIndex, prt);
+            }
+            clusters[c].i++;
+        }
+        synchroni=0;
+        barrier.Wait();
+        unique_lock<mutex> lck(divideJobM,try_to_lock);
+        if (lck.owns_lock())
+        {
+
+            anothercontrolvariable=0;
+            synchroni++;
+            debug++;
+            if (debug==1){
+
+            }
+            if (synchroni==1) {
+                    CommitUpdatesII();
+                    anothercontrolvariable = 0;
+                    controlVariable=0;
+                    numberOfNodesToProcess = leafs.numberofleafs;
+                    divideJobWrapper();
+                int f=0;
+                    while(f<leafs.numberofleafs){
+                    node=leafs.array[f]->leaf;
+                        f++;
+                    if (processedleafs[node]<1) {
+                        nodes[node].subTreeSize++;
+                        for (auto child: edges[node])
+                            if (nodes[child].subTreeSize == 0)
+                                nodes[node].subTreeSize++;
+                            else
+                                nodes[node].subTreeSize += nodes[child].subTreeSize;
+                        processedleafs[node]++;
+
+                    }
+                    //compute a prefix sum on Cp obtaining cp
+                }
+                lck.unlock();
+                }
+            }
+        //only one thread commitUpdates 2o
+        barrier.Wait();
+
+    }
 }
 
 void Graph::InsertLeaf(int u) {
     leafs.array[leafs.numberofleafs]=InsertLeafInlinkedList(u);
-    cout<<leafs.array[leafs.numberofleafs]->leaf<<"  plpl"<<endl;
     leafs.numberofleafs++;
 }
 
@@ -866,5 +995,180 @@ void Graph::DeleteLeaf(const int &i) {
     }
 }
 
+void Graph::PrePostOrder(int threadIndex) {
+    controlVariable=0;
+    anothercontrolvariable=0;
+    numberOfNodesToProcess=secroots.numberofroots;
+    synchroni=0;
+    unsigned long long pre, post,k,taup, clau;
+    int c=threadIndex;
+while(secroots.numberofroots>0){
+    while(clusters[c].i<clusters[c].j) {
+        int node = secroots.array[clusters[c].i]->node;
+        clusters[c].i++;
+        if (nodes[node].pt.lastElementIndex > 0)
+            k = static_cast<std::make_unsigned<decltype(nodes[node].pt.lastElementIndex)>::type>(nodes[node].pt.lastElementIndex--);
+        else
+            k = 0;
+        pre = nodes[node].pre;
+        post = nodes[node].post;
+        cout<<node<<endl;
+        int parentofchild;
+        for (auto &child: edges[node]) {
+            clau = 0;
+            if (nodes[child].parent != -1) {
+                parentofchild = nodes[child].parent;
+                for (auto nchld : edges[parentofchild])
+                    if (nchld < parentofchild){
+                        clau += nodes[nchld].subTreeSize;
+                        cout<<nchld<<endl;
+                    }
+            }
+            unsigned long long pre2 = pre + clau;
+            unsigned long long post2 = post + clau;
+            if(pre2!=nodes[child].pre || post2!=nodes[child].post)
+            ModifiedPrePost(threadIndex, child, pre2, post2); //1 :preorder
+            countEdge(threadIndex, child);
 
+        }
+
+            pre = pre + k ;
+        if(nodes[node].subTreeSize>0)
+            post += nodes[node].subTreeSize - 1;
+          cout<<nodes[node].post<<endl;
+            if(pre!=nodes[node].pre || post!=nodes[node].post)
+                ModifiedPrePost(threadIndex, node, pre, post); //1 :preorder
+
+
+    }
+    synchroni=0;
+    barrier.Wait();
+        unique_lock<mutex> lck(divideJobM,try_to_lock);
+        if (lck.owns_lock())
+        {
+            controlVariable=0;
+            anothercontrolvariable=0;
+            synchroni++;
+            debug++;
+            if (debug==1){
+
+            }
+            if (synchroni==1) {
+                CommitPrePost();
+                divideJobWrapper();
+            }
+            lck.unlock();
+        }
+        barrier.Wait();
+    }
+}
+
+void Graph::CommitPrePost() {
+map <int,int> c;
+secroots.numberofroots=0;
+secroots.first=secroots.last=NULL;
+    for (int i = 0; i < nPartitions; i++) {
+        for (struct m_pplinked *c = modifiedprepost[i].first; c != NULL; c = c->next) {
+            nodes[c->node].pre += c->pre;
+            nodes[c->node].post += c->post;
+            modifiedprepost[i].array[c->node]=NULL;
+        }
+        modifiedprepost[i].first = modifiedprepost[i].last = NULL;
+        for (int o=0; o<lengthOfArrayEdgesVisited[i];o++) {
+            if (c.find(nedgesvisited[i][o]) != c.end()) {
+                c.find(nedgesvisited[i][o])->second += edgesvisited[i][nedgesvisited[i][o]];
+
+
+                if (incomingedges[nedgesvisited[i][o]].size() <= c.find(nedgesvisited[i][o])->second) {
+                    InsertRootII(nedgesvisited[i][o]);
+                    nedgesvisited[i][o] = nedgesvisited[i][lengthOfArrayEdgesVisited[i] - 1];
+                    lengthOfArrayEdgesVisited[i]--;
+                    o--;
+                }
+            } else {
+                c.emplace(nedgesvisited[i][o], edgesvisited[i][nedgesvisited[i][o]]);
+                if (incomingedges[nedgesvisited[i][o]].size() <= c.find(nedgesvisited[i][o])->second) {
+                    InsertRootII(nedgesvisited[i][o]);
+                    nedgesvisited[i][o] = nedgesvisited[i][lengthOfArrayEdgesVisited[i] - 1];
+                    lengthOfArrayEdgesVisited[i]--;
+                    o--;
+                }
+            }
+        }
+
+    }
+    numberOfNodesToProcess=secroots.numberofroots;
+
+
+}
+void Graph::ModifiedPrePost(int threadIndex, int node, unsigned long long pre,unsigned long long post){
+
+    struct m_pplinked *c=modifiedprepost[threadIndex].array[node],*n;
+    if (c!=NULL){
+   c->pre=pre;
+   c->post=post;
+   c->node=node;
+        return;
+    }
+else {
+        c = (struct m_pplinked *) (malloc(sizeof(struct m_pplinked)));
+            c->pre=pre;
+            c->post=post;
+        modifiedprepost[threadIndex].array[node]=c;
+        if (modifiedprepost[threadIndex].first==NULL)
+        {
+            c->next=NULL;
+            c->previous=NULL;
+            modifiedprepost[threadIndex].first=c;
+
+            modifiedprepost[threadIndex].last=NULL;
+            return;
+        }
+        if (modifiedprepost[threadIndex].last==NULL){
+            c->previous=modifiedprepost[threadIndex].first;
+            modifiedprepost[threadIndex].first->next=c;
+            c->next=NULL;
+            modifiedprepost[threadIndex].last=c;
+            return;
+        }
+        c->previous=modifiedprepost[threadIndex].first;
+        n=modifiedprepost[threadIndex].first->next;
+        modifiedprepost[threadIndex].first->next=c;
+        if (n==NULL) {
+            modifiedprepost[threadIndex].last = c;
+
+
+            modifiedprepost[threadIndex].first->next=modifiedprepost[threadIndex].last;
+            return ;
+        }
+        n->previous=c;
+        c->next=n;
+
+}
+}
+
+void Graph::InsertRootII(int u){
+   
+        if (secroots.first==NULL){
+            secroots.first= (struct rts_linked *)(malloc(sizeof(struct rts_linked *)));
+            secroots.first->previous=NULL;
+            secroots.first->next=NULL;
+            secroots.first->node=u;
+            secroots.last=secroots.first;
+            secroots.array[secroots.numberofroots]= secroots.first;
+            secroots.numberofroots++;
+            return;
+        }
+        struct rts_linked *l;
+        l=secroots.last;
+        l->next= (struct rts_linked *)(malloc(sizeof(struct rts_linked*)));
+        l=l->next;
+        l->previous=secroots.last;
+        l->node=u;
+        l->next=NULL;
+        secroots.last=l;
+        secroots.array[secroots.numberofroots]=l;
+        secroots.numberofroots++;
+        return;
+}
 
