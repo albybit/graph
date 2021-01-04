@@ -298,6 +298,9 @@ Graph::Graph(FILE *stat, FILE *gra){
    for (int i=0;i<roots.numberofroots;i++){
        InsertRootII(roots.array[i]->node);
    }
+//SequentialRecursive(2);
+  // printIt();
+ //return;
 
   vector<thread> t;
     t.reserve(nPartitions);
@@ -1006,40 +1009,38 @@ while(secroots.numberofroots>0){
     while(clusters[c].i<clusters[c].j) {
         int node = secroots.array[clusters[c].i]->node;
         clusters[c].i++;
-        if (nodes[node].pt.lastElementIndex > 0)
-            k = static_cast<std::make_unsigned<decltype(nodes[node].pt.lastElementIndex)>::type>(nodes[node].pt.lastElementIndex--);
-        else
-            k = 0;
-        pre = nodes[node].pre;
-        post = nodes[node].post;
-        cout<<node<<endl;
-        int parentofchild;
-        for (auto &child: edges[node]) {
-            clau = 0;
-            if (nodes[child].parent != -1) {
-                parentofchild = nodes[child].parent;
-                for (auto nchld : edges[parentofchild])
-                    if (nchld < parentofchild){
-                        clau += nodes[nchld].subTreeSize;
-                        cout<<nchld<<endl;
-                    }
+        if (nodes[node].visited==0) {
+            if (nodes[node].pt.lastElementIndex > 0)
+                k = static_cast<std::make_unsigned<decltype(nodes[node].pt.lastElementIndex)>::type>(nodes[node].pt.lastElementIndex--);
+            else
+                k = 0;
+            pre = nodes[node].pre;
+            post = nodes[node].post;
+            int parentofchild;
+            for (auto &child: edges[node]) {
+                clau = 0;
+                if (nodes[child].parent != -1) {
+                    parentofchild = nodes[child].parent;
+                    for (auto nchld : edges[parentofchild])
+                        if (nchld < parentofchild) {
+                            clau += nodes[nchld].subTreeSize;
+                        }
+                }
+                unsigned long long pre2 = pre + clau;
+                unsigned long long post2 = post + clau;
+                if (pre2 != nodes[child].pre || post2 != nodes[child].post)
+                    ModifiedPrePost(threadIndex, child, pre2, post2);
+                countEdge(threadIndex, child);
             }
-            unsigned long long pre2 = pre + clau;
-            unsigned long long post2 = post + clau;
-            if(pre2!=nodes[child].pre || post2!=nodes[child].post)
-            ModifiedPrePost(threadIndex, child, pre2, post2); //1 :preorder
-            countEdge(threadIndex, child);
 
+
+            pre = pre + k;
+            if (nodes[node].subTreeSize > 0)
+                post += nodes[node].subTreeSize - 1;
+            cout << nodes[node].post << endl;
+            if (pre != nodes[node].pre || post != nodes[node].post)
+                ModifiedPrePost(threadIndex, node, pre, post);
         }
-
-            pre = pre + k ;
-        if(nodes[node].subTreeSize>0)
-            post += nodes[node].subTreeSize - 1;
-          cout<<nodes[node].post<<endl;
-            if(pre!=nodes[node].pre || post!=nodes[node].post)
-                ModifiedPrePost(threadIndex, node, pre, post); //1 :preorder
-
-
     }
     synchroni=0;
     barrier.Wait();
@@ -1071,6 +1072,7 @@ secroots.first=secroots.last=NULL;
         for (struct m_pplinked *c = modifiedprepost[i].first; c != NULL; c = c->next) {
             nodes[c->node].pre += c->pre;
             nodes[c->node].post += c->post;
+            nodes[c->node].visited++;
             modifiedprepost[i].array[c->node]=NULL;
         }
         modifiedprepost[i].first = modifiedprepost[i].last = NULL;
@@ -1170,5 +1172,24 @@ void Graph::InsertRootII(int u){
         secroots.array[secroots.numberofroots]=l;
         secroots.numberofroots++;
         return;
+}
+
+void Graph::SequentialRecursive(int node) {
+
+    nodes[node].pre=previsit;
+    nodes[node].visited=1;
+    previsit++;
+    for (auto &child : edges[node])
+    {
+        if (nodes[child].visited==0){
+            nodes[child].parent=node;
+            SequentialRecursive(child);
+        }
+    }
+    nodes[node].post=postvisit;
+    postvisit++;
+
+
+
 }
 

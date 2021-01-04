@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <bits/stdc++.h>
 #include "Barrier.h"
-#define nPartitions 4
+#define nPartitions 1
 using namespace std;
 struct path{
     int *path, sPath=10, lastElementIndex=0;
@@ -111,6 +111,7 @@ class Graph {
     int nOfNodesProcessed[nPartitions];
     //vector<mutex> muxes;
     struct csc_Node cscnode;
+    unsigned long long previsit=0,postvisit=0;
     void divideJob(); // tested
     int anothercontrolvariable=0;
     void commitUpdates(); // tested
@@ -163,7 +164,7 @@ public:
     void PrePostOrder(int threadIndex);
 
     void CommitPrePost();
-
+    void SequentialRecursive(int node);
     void ModifiedPrePost(int threadIndex, int node, unsigned long long pre, unsigned long long post);
 
 };
