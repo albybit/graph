@@ -300,7 +300,7 @@ Graph::Graph(FILE *stat, FILE *gra){
        InsertRootII(roots.array[i]->node);
    }
 //SequentialRecursive(2);
- //printIt();
+//printIt();
 //return;
 
   vector<thread> t;
@@ -935,8 +935,9 @@ void Graph::SubGraphSize(int threadIndex) {
                                     nodes[node].subTreeSize += nodes[child].subTreeSize;
                         s++;
                             }
+
+//if(s==0)nodes[node].subTreeSize--;
                         } processedleafs[node]++;
-if(s==0)nodes[node].subTreeSize--;
                     }
                     //compute a prefix sum on Cp obtaining cp
                 }
@@ -1017,6 +1018,7 @@ void Graph::PrePostOrder(int threadIndex) {
     vector<int>nextC;
     unsigned long long pre, post,k,taup, clau;
     int c=threadIndex;
+
 while(roots.first!=NULL) {
     synchroni = 0;
     barrier.Wait();
@@ -1025,14 +1027,11 @@ while(roots.first!=NULL) {
         controlVariable = 0;
         anothercontrolvariable = 0;
         synchroni++;
-        debug++;
-        if (debug == 1) {
-
-        }
         if (synchroni == 1) {
             do {
-                int node =  roots.first->node;
-                roots.first=roots.first->next;
+                int node =  roots.first->node;    //in roots ci sono tutte le radici del grafo.
+                //                                  sono ordinate secondo un ordine crescente.
+                roots.first=roots.first->next;     // in roots cerchiamo il primo nodo della coda Q ( indicata su PrePostOrder)
                 if (nodes[node].visited == 0) {
                     nodes[node].visited++;
                     if (nodes[node].pt.lastElementIndex > 0)
@@ -1052,9 +1051,7 @@ while(roots.first!=NULL) {
                                     clau += nodes[nchld].subTreeSize;
                                 }
                             unsigned long long pre2 = pre + clau;
-                            cout << pre2 << endl;
                             unsigned long long post2 = post + clau;
-                            cout << post2 << endl;
                             if (pre2 != nodes[child].pre || post2 != nodes[child].post)
                                 ModifiedPrePost(threadIndex, child, pre2, post2);
                             countEdge(threadIndex, child);
@@ -1062,6 +1059,7 @@ while(roots.first!=NULL) {
                         }
 
                     }
+                    if( k>0)
                     pre = pre + k-1;
                     if (nodes[node].subTreeSize > 0)
                         post += nodes[node].subTreeSize - 1;
@@ -1074,6 +1072,8 @@ while(roots.first!=NULL) {
         }
         lck.unlock();
     }
+    synchroni=0;
+    barrier.Wait();
     while (secroots.numberofroots > 0) {
         while (clusters[c].i < clusters[c].j) {
 
@@ -1085,43 +1085,44 @@ while(roots.first!=NULL) {
                     k = 0;
 
                 nodes[node].visited++;
-                pre = nodes[node].pre;
-                post = nodes[node].post;
-                int parentofchild;
+                if (modifiedprepost[threadIndex].array[node]!=NULL){
+                    pre=modifiedprepost[threadIndex].array[node]->pre;
+                    post=modifiedprepost[threadIndex].array[node]->post;
+                }else {
+                    pre = nodes[node].pre;
+                    post = nodes[node].post;
+                }int parentofchild;
                 for (auto &child: edges[node]) {
-                    parentofchild=nodes[child].parent;
+                    parentofchild = nodes[child].parent;
                     if (parentofchild == node) {
                         clau = 0;
                         parentofchild = nodes[child].parent;
-                        cout << parentofchild;
                         for (auto nchld : edges[node])
                             if (nchld < child && nodes[nchld].parent == node) {
                                 clau += nodes[nchld].subTreeSize;
                             }
                         unsigned long long pre2 = pre + clau;
-                        cout << pre2 << endl;
                         unsigned long long post2 = post + clau;
-                        cout << post2 << endl;
+                        if (modifiedprepost[threadIndex].array[child]!=NULL) {
+                            modifiedprepost[threadIndex].array[child]->post = post2;
+                            modifiedprepost[threadIndex].array[child]->pre = pre2;
+                        }
+                            else
                         if (pre2 != nodes[child].pre || post2 != nodes[child].post)
                             ModifiedPrePost(threadIndex, child, pre2, post2);
                         countEdge(threadIndex, child);
-
                     }
-
-
-                    pre = pre + k-1;
-                    cout<<k<<endl;
-                    if (nodes[node].subTreeSize > 0)
-                        post += nodes[node].subTreeSize - 1;
-                    if (pre != nodes[node].pre || post != nodes[node].post)
-                        ModifiedPrePost(threadIndex, node, pre, post);
                 }
-
-
-        }
+                        if (k > 0)
+                            pre = pre + k - 1;
+                        if (nodes[node].subTreeSize > 0)
+                            post += nodes[node].subTreeSize - 1;
+                        if (pre != nodes[node].pre || post != nodes[node].post)
+                            ModifiedPrePost(threadIndex, node, pre, post);
+                    }
         synchroni = 0;
         barrier.Wait();
-        unique_lock<mutex> lck(divideJobM, try_to_lock);
+        lck.lock();//(divideJobM, try_to_lock);
         if (lck.owns_lock()) {
             controlVariable = 0;
             anothercontrolvariable = 0;
@@ -1136,7 +1137,6 @@ while(roots.first!=NULL) {
             }
             lck.unlock();
         }
-        barrier.Wait();
     }
 }
 }
@@ -1149,7 +1149,6 @@ secroots.first=secroots.last=NULL;
         for (struct m_pplinked *c = modifiedprepost[i].first; c != NULL; c = c->next) {
             nodes[c->node].pre = c->pre;
             nodes[c->node].post = c->post;
-            nodes[c->node].visited=c->visited;
             modifiedprepost[i].array[c->node]=NULL;
         }
         modifiedprepost[i].first = modifiedprepost[i].last = NULL;
@@ -1182,17 +1181,18 @@ secroots.first=secroots.last=NULL;
 }
 void Graph::ModifiedPrePost(int threadIndex, int node, unsigned long long pre,unsigned long long post){
 
-    struct m_pplinked *c=modifiedprepost[threadIndex].array[node],*n;
-    if (c!=NULL){
-   c->pre=pre;
-   c->post=post;
-   c->node=node;
+    struct m_pplinked *c,*n;
+      if(  modifiedprepost[threadIndex].array[node]!=NULL){
+          modifiedprepost[threadIndex].array[node]->pre=pre;
+          modifiedprepost[threadIndex].array[node]->post=post;
+          modifiedprepost[threadIndex].array[node]->node=node;
         return;
     }
 else {
         c = (struct m_pplinked *) (malloc(sizeof(struct m_pplinked)));
             c->pre=pre;
             c->post=post;
+            c->node=node;
         modifiedprepost[threadIndex].array[node]=c;
         if (modifiedprepost[threadIndex].first==NULL)
         {
@@ -1252,7 +1252,6 @@ void Graph::InsertRootII(int u){
 }
 
 void Graph::SequentialRecursive(int node) {
-
     nodes[node].pre=previsit;
     nodes[node].visited=1;
     previsit++;
